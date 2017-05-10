@@ -1,0 +1,23 @@
+---
+title: "README"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Tutorials
+
+- Markdown
+    - [Reference Guide](https://www.rstudio.com/wp-content/uploads/2015/03/rmarkdown-reference.pdf) 
+    - [Lessons](http://rmarkdown.rstudio.com/lesson-3.html) 
+    - [Fast GitHub](https://guides.github.com/features/mastering-markdown/)
+
+- Emoji :metal:
+    - [Emoji Cheat Set](https://www.webpagefx.com/tools/emoji-cheat-sheet/)
+    
+- [Dplyr](https://cran.rstudio.com/web/packages/dplyr/vignettes/introduction.html)
+
+    
+  
