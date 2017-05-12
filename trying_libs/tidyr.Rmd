@@ -1,0 +1,26 @@
+---
+title: "Tidyverse Dplyr"
+output: html_document
+---
+
+```{r include = FALSE}
+library(tidyverse)
+```
+
+
+Para uma introdução, leia:
+```{r results = 'hide', warning = FALSE}
+ vignette("tidy-data")
+```
+
+### Tidying messy datasets
+
+Real datasets can, and often do, violate the three precepts of tidy data in almost every way imaginable. The five most common problems with messy dataset:
+
+- Column headers are values, not variable names.
+- Multiple variables are stored in one column.
+- Variables are stored in both rows and columns.
+- Multiple types of observational units are stored in the same table.
+- A single observational unit is stored in multiple tables.
+
+Surprisingly, most messy datasets, including types of messiness not explicitly described above, can be tidied with a small set of tools: gathering, separating and spreading.
