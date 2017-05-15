@@ -24,3 +24,8 @@ Real datasets can, and often do, violate the three precepts of tidy data in almo
 - A single observational unit is stored in multiple tables.
 
 Surprisingly, most messy datasets, including types of messiness not explicitly described above, can be tidied with a small set of tools: gathering, separating and spreading.
+
+
+### Column headers are values, not variable names
+
+Obs: Não comecei a ler.

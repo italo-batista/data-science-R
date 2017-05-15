@@ -1,0 +1,79 @@
+---
+title: "Tidyverse Dplyr"
+output: html_document
+---
+
+Carregando bibliotecas:
+```{r include = FALSE, results = 'hide'}
+library("tidyverse")
+```
+
+
+Nesta exploração, estarei usando os dados das edições do oscar como base de dados.
+Lendo dados dde .csv:
+```{r results = 'hide', warning = FALSE}
+data.oscar = read_csv(file = "data/oscar_data.csv")
+```
+
+
+Número de indicações para atores e atrizes:
+```{r}
+data.oscar.temp <- data.oscar %>%
+  filter(categoria == "Actor -- Leading Role" |
+         categoria == "Actress -- Leading Role")
+
+  ggplot(data.oscar.temp, mapping = aes(x = atribuicao, color = categoria)) + 
+  geom_bar() + 
+  ggtitle("Num. de indicações para atores") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) # inclina textos do eixo x
+
+```
+
+
+Número de indicações por edição:
+```{r}
+ggplot(data.oscar) + 
+  geom_bar(mapping = aes(x = ano)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) # inclina textos do eixo x
+```
+
+
+Número de indicações por categoria
+```{r}
+  ggplot(data.oscar) + 
+  geom_bar(mapping = aes(x = categoria)) + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) # inclina textos do eixo x
+```
+
+
+Indicações e prêmios e atrizes ao longo do tempo:
+```{r warning=FALSE}
+data.oscar.actress <- data.oscar %>%
+  filter(categoria == "Actress -- Leading Role")
+
+ggplot(data.oscar.actress, aes(x=atribuicao, y=ano, color=venceu)) + 
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + # inclina textos do eixo x
+  theme_bw() # ajustes para melhor a visualização do gráfico
+```
+
+
+Indicações e prêmios e atrizes ao longo do tempo (histograma):
+```{r warning=FALSE}
+ggplot(data.oscar.actress, aes(x=atribuicao, y=ano, fill=venceu)) + 
+  geom_histogram(stat='identity') + # La valeur identity du paramètre stat indique à la fonction d’utiliser toutes les valeurs du tableau au lieu de faire un histogramme de répartition.
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + # inclina textos do eixo x
+  theme_bw() + 
+  xlab(label="Estou mudando o texto do eixo x")
+```
+
+
+Boxplot de número de indicações de atrizes:
+
+```{r} 
+data.oscar.actress.summary <- data.oscar.actress %>%  group_by(atribuicao) %>% summarise(indicacoes = n())
+data.oscar.actress.summary[,3] <- c(5)
+ggplot(data=data.oscar.actress.summary) + 
+ geom_boxplot(mapping  = aes(x=V3, y=indicacoes))
+```
+
