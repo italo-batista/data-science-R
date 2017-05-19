@@ -1,0 +1,14 @@
+---
+title: "readme"
+date: "17 de maio de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## READ ME
+
+This analysis uses data organized by [this repository](https://github.com/nazareno/imdb-series).
+
