@@ -92,11 +92,10 @@ dados %>%
 ```
 
 
-
 As outras séries parecem variar menos que The Simpsons, além de concentrarem uma maioria de avaliações acima de 8. De pouco mais de 100 episódios ao todo, apenas três estão abaixo de 8.0.
 
-## Checkpoint 1
 
+## Checkpoint 1
 
 ### Entre as séries, qual a melhor avaliada no IMDB? A diferença é grande? Pequena? 
 
@@ -106,16 +105,26 @@ Utilizando a avaliação geral por episódio calculada pelo IMDB, podemos discut
 dados %>% 
     mutate(serie = as.character(series_name)) %>% 
     ggplot( aes(x = serie, y = UserRating, color = serie) ) + 
-    geom_point(alpha = 0.5) + 
+    geom_point(alpha = .4) + 
     geom_jitter(width = .4) +
-    stat_summary(fun.y = median, fun.ymin = median, fun.ymax = median, geom = "crossbar", width = 0.9, color = "blue")
+    geom_boxplot(alpha = 0.7, widht = 1.6)
 ```
 
-No gráfico acima, a linha azul identifica a mediana da avaliação para cada série. A partir deste gráfico, identificamos que Game of Thrones (GoT), Sense8 e Stranger Things competem entre as melhores, pois 50% dos episódios dessas séries são melhor avaliados que a maioria dos episódios de Black Mirror de The Simpsons.
+
+No gráfico acima, a linha marrom identifica a mediana da avaliação para cada série. A partir deste gráfico, identificamos que Game of Thrones (GoT), Sense8 e Stranger Things competem entre as melhores, pois 50% dos episódios dessas séries são melhor avaliados que a maioria dos episódios de Black Mirror de The Simpsons.
 Vamos analisar mais de perto os dados das séries que concorrem em primeiro:
 
+```{r}
+dados %>% 
+    mutate(serie = as.character(series_name)) %>% 
+    filter(series_name %in% c("Game of Thrones", "Stranger Things", "Sense8")) %>%
+    ggplot( aes(x = serie, y = UserRating, color = serie) ) + 
+    geom_violin() +
+    stat_summary(fun.y = median, fun.ymin = median, fun.ymax = median, geom = "crossbar", width = 1)
+```
 
-Talvez seja apropriado analisar a proporção de pessoas que deram avaliações mais altas.
+
+Podemos também analisar a proporção de pessoas que deram avaliações mais altas.
 
 ```{r}
 
