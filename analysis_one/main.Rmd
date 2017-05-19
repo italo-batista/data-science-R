@@ -11,35 +11,40 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r include = FALSE, results = 'hide', echo=FALSE}
 library("tidyverse")
 ```
-
+```{r include = FALSE, results = 'hide', echo=FALSE}
+library("tidyr")
+library("dplyr")
+library("ggplot2")
+library("readr")
+```
 
 ### Understanding data
 
 Loading data:
-```{r results='hide', warning=FALSE, error=FALSE, message=FALSE}
+```{r results='hide', warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
 dados = read_csv(file = "series_from_imdb.csv")
 ```
 
 
-This data, extracted from IMDB site, refers to evaluations that users gave to episodes of some series.
-The data have the following structure:
+Esses dados, extraídos do site IMDB, são referentes às avaliações que usuários deram a episódies das séries que assistiram.
+Os dados têm a seguinte estrutura:
 
 ```some_language
-* $ series_name <chr> Self explanatory
-* $ series_ep   <int> Episode index in the series from 1 onwards.
-* $ season      <int> From 1 onwards
-* $ season_ep   <int> Episode index in the season
-* $ url         <chr> IMDB url for the episode (eg "http://www.imdb.com/title/tt5174246/")
-* $ Episode     <chr> Episode title
-* $ UserRating  <dbl> IMDB User Rating calculated [as explained in their site](http://www.imdb.com/help/show_leaf?votestopfaq).
-* $ UserVotes   <dbl> Num of votes for the rating
-* $ r1          <dbl> Proportion of ratings given by user with score 1
-* $ r2          <dbl> Proportion of ratings given by user with score 2
+* $ series_name <chr> Auto-explicativo.
+* $ series_ep   <int> O número do episódio na série desde o primeiro.
+* $ season      <int> O número da temporada, começando em 1.
+* $ season_ep   <int> Número do episódio na série.
+* $ url         <chr> Url do IMDB para o episódio (eg "http://www.imdb.com/title/tt5174246/")
+* $ Episode     <chr> Título do episódio.
+* $ UserRating  <dbl> Avaliação geral para o episódio, calculado [como explicado em](http://www.imdb.com/help/show_leaf?votestopfaq).
+* $ UserVotes   <dbl> Número de votos para o episódio.
+* $ r1          <dbl> Proporção de avaliações dadas por usuários com nota 1
+* $ r2          <dbl> Proporção de avaliações dadas por usuários com nota 2
 * ...
-* $ r10         <dbl> Proportion of ratings given by user with score 10
+* $ r10         <dbl> Proporção de avaliações dadas por usuários com nota 10
 ```
 
-For this analysi, we will use data from the following series:
+Para esta análise, usaremos os dados das seguintes séries:
   - Sense8
   - Stranger Things
   - Black Mirror
@@ -55,20 +60,9 @@ dados = dados %>% filter(series_name %in% c("Black Mirror",
 ```
 
 
-As we will only use some variable, we will arrange our data to select the only variables we will analysi, so they are:
-  - series_name
-  - series_ep
-  - season
-  - season_ep
-  - episode
-  - userRating
-  - UserVotes
-  
-For now, we are not interested in urls or in proportions of ratings given by users.
-
+É preciso filtrar os dados da série The Simpsons para pegar apenas os anterior ao episódio número 204, pois a partir deste o número da temporado está calculado errado.
 ```{r}
-dados = dados %>%
-  select(series_name, series_ep, season, season_ep, Episode, UserRating, UserVotes)
+dados = dados %>% filter(series_ep < 204)
 ```
 
 
@@ -98,6 +92,7 @@ dados %>%
 ```
 
 
+
 As outras séries parecem variar menos que The Simpsons, além de concentrarem uma maioria de avaliações acima de 8. De pouco mais de 100 episódios ao todo, apenas três estão abaixo de 8.0.
 
 ## Checkpoint 1
@@ -105,23 +100,30 @@ As outras séries parecem variar menos que The Simpsons, além de concentrarem u
 
 ### Entre as séries, qual a melhor avaliada no IMDB? A diferença é grande? Pequena? 
 
+Utilizando a avaliação geral por episódio calculada pelo IMDB, podemos discutir os seguintes pontos:
+
 ```{r}
 dados %>% 
     mutate(serie = as.character(series_name)) %>% 
     ggplot( aes(x = serie, y = UserRating, color = serie) ) + 
-    geom_point() + 
-    geom_jitter(width = .4) +
-    stat_summary(fun.y = mean, fun.ymin = mean, fun.ymax = mean, geom = "crossbar", width = 0.9, color = "red") 
-
-dados %>% 
-    mutate(serie = as.character(series_name)) %>% 
-    ggplot( aes(x = serie, y = UserRating, color = serie) ) + 
-    geom_point() + 
+    geom_point(alpha = 0.5) + 
     geom_jitter(width = .4) +
     stat_summary(fun.y = median, fun.ymin = median, fun.ymax = median, geom = "crossbar", width = 0.9, color = "blue")
 ```
 
+No gráfico acima, a linha azul identifica a mediana da avaliação para cada série. A partir deste gráfico, identificamos que Game of Thrones (GoT), Sense8 e Stranger Things competem entre as melhores, pois 50% dos episódios dessas séries são melhor avaliados que a maioria dos episódios de Black Mirror de The Simpsons.
+Vamos analisar mais de perto os dados das séries que concorrem em primeiro:
 
+
+Talvez seja apropriado analisar a proporção de pessoas que deram avaliações mais altas.
+
+```{r}
+
+```
+
+
+
+---
 Há alguma correlação entre a avaliação do usuário e o número do episódio ao longo de toda série?
 Os últimos episódios de uma temporada costumam ser melhor avaliados?
 Séries com mamis temporadas têm melhores avaliações (e por isso foram renovadas mais vezes?)
