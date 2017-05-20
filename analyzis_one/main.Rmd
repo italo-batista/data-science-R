@@ -1,0 +1,135 @@
+---
+title: "Analisando avaliações de usuários do IMDB para séries"
+output: html_document
+---
+
+##### Ítalo Medeiros
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br>
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+library("tidyverse")
+```
+```{r include = FALSE, results = 'hide', echo=FALSE}
+library("tidyr")
+library("dplyr")
+library("ggplot2")
+library("readr")
+```
+
+<br>
+
+## Compreendendo os dados
+
+Esta análise utiliza dados de séries extraídos do [IMDB](http://www.imdb.com). Esses dados foram organizados pelo prof. Nazareno e podem ser encontrados [neste repositório](https://github.com/nazareno/imdb-series).
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+dados = read_csv(file = "series_from_imdb.csv")
+```
+
+Esses dados são referentes às avaliações que usuários deram a episódies das séries que assistiram. Eles têm a seguinte estrutura:
+
+```some_language
+* $ series_name <chr> Auto-explicativo.
+* $ series_ep   <int> O número do episódio na série desde o primeiro.
+* $ season      <int> O número da temporada, começando em 1.
+* $ season_ep   <int> Número do episódio na série.
+* $ url         <chr> Url do IMDB para o episódio (eg "http://www.imdb.com/title/tt5174246/")
+* $ Episode     <chr> Título do episódio.
+* $ UserRating  <dbl> Avaliação geral para o episódio, calculado [como explicado em](http://www.imdb.com/help/show_leaf?votestopfaq).
+* $ UserVotes   <dbl> Número de votos para o episódio.
+* $ r1          <dbl> Proporção de avaliações dadas por usuários com nota 1
+* $ r2          <dbl> Proporção de avaliações dadas por usuários com nota 2
+* ...
+* $ r10         <dbl> Proporção de avaliações dadas por usuários com nota 10
+```
+
+Para esta análise, usaremos os dados das seguintes séries:
+  - Sense8
+  - Stranger Things
+  - Black Mirror
+  - The Simpsons
+  - Game of Thrones
+  
+```{r pressure, results='hide'}
+dados = dados %>% 
+  filter(series_name %in% c("Black Mirror", "Game of Thrones", "Stranger Things", "Sense8", "The Simpsons"))
+```
+
+<div style="text-align: justify">
+
+É preciso filtrar os dados da série The Simpsons para pegar apenas os episódios anteriores ao episódio número 204, pois a partir deste o número da temporado está calculado errado.
+
+</div>
+```{r}
+dados = dados %>% filter(series_ep < 204)
+```
+
+<div style="text-align: justify">
+
+Antes de começarmos a analisar os dados, é interessante saber saber como os dados se comportam, a fim de verificar se há existência de valores estranhos ou muito dispersos ou muito frequentes. Para tanto, iremos plotar um histograma, a fim de verificar visualmente.
+
+</div>
+```{r fig.align='center'}
+dados %>% 
+  mutate(Série = as.character(series_name)) %>% 
+  ggplot(mapping = aes(x = series_ep, y = UserRating, color = Série)) + 
+  geom_point( alpha = 0.6) +
+  xlab("Número do episódio ná seríe") + 
+  ylab("Avaliação geral do episódio")
+```
+
+<div style="text-align: justify">
+
+O aspecto visual que mais chama a atenção neste gráfico é que The Simpsons parece trilhar um caminho próprio no quesito comportamento. Esta série tem um número de episódios muito superior ao das outras séries, além de, a partir de algum momento do tempo, ter uma concentração de avaliações de episódios abaixo da concentração de episódios das outras séries.  
+As outras séries parecem variar menos entre si, além de concentrarem uma maioria de avaliações acima de 8. Juntas, totalizam pouco mais de 100 episódios ao todo, dos quais apenas três estão abaixo de 8.0.
+
+</div>
+
+<br>
+
+## Entre as séries, qual a melhor avaliada no IMDB? A diferença é grande? Pequena? 
+
+Utilizando a avaliação geral por episódio calculada pelo IMDB, podemos discutir os seguintes pontos:
+
+```{r fig.align='center'}
+dados %>% 
+  mutate(Série = as.character(series_name)) %>% 
+  ggplot( aes(x = Série, y = UserRating, color = Série) ) + 
+  geom_jitter(width = .4, height = .07, alpha = .6) +
+  geom_boxplot(alpha = .4, width = 0.95) +
+    
+  theme(axis.title.x=element_blank()) +
+  ylab("Avaliação geral do episódio")
+```
+
+<div style="text-align: justify">
+
+No gráfico acima, as linhas horizontais identificam as medianas das avaliaçãos para episódios agrupadas por série. Uma mediana basicamente divide os dados ao meio; no nosso caso, divide a quantidade de episódios de uma série ao meio. Desse modo, a partir deste gráfico, identificamos que Game of Thrones (GoT), Sense8 e Stranger Things competem entre as melhores, pois 50% dos episódios dessas séries são melhor avaliados que a maioria dos episódios de Black Mirror e de The Simpsons.  
+Vamos analisar mais de perto os dados das séries que concorrem em primeiro:
+
+</div>
+```{r fig.align='center'}
+dados %>% 
+  mutate(Série = as.character(series_name)) %>% 
+  filter(series_name %in% c("Game of Thrones", "Stranger Things", "Sense8")) %>%
+  ggplot( aes(x = Série, y = UserRating, color = Série) ) + 
+  geom_violin(alpha = .4) +
+  geom_jitter(width = .1, height = .07, alpha = .7) +
+  stat_summary(fun.y = median, fun.ymin = median, fun.ymax = median, geom = "crossbar", width = 1) +
+  
+  theme(axis.title.x=element_blank()) +
+  ylab("Avaliação geral do episódio")
+```
+
+<div style="text-align: justify">
+
+Sense8 parece ser um pouco melhor avaliada que as outras séries, já que sua mediana está num nível ligeiramente acima. Contudo, pela diferença ser tão pequena, isso não é suficiente para fazer Sense8 ser a melhor série.  
+Algo bastante significativo é o fato de Got ter um número considerável de episódios avaliados acima de 9.5, com 4 avaliados em quase 10 (9.9), enquanto Sense8 tem um número menor de episódios avaliados acima de 9.5. Além disso, a menor avaliação de Got é 8, enquanto em Sense8 a menor avaliação é 7.5.  
+Importa aqui dizer que GoT tem um número de episódios maior que o dobro do número de episódios de Sense8 e Stranger Things, o que talvez tornasse injusto dar-lhe o crédito de melhor série entre as cinco levadas em conta nesta análise. Todavia, pelos gráficos, constatamos que GoT tem um comportamento mais harmônico, no sentido de que sempre foi *muito* bem avaliada, demonstrando que sempre agradou o público. É verdade que Stranger Things, cuja menor avaliação geral para um episódio é 8.5, também agradou muito ao público, mas não chegou a alcançar notas tão altas quanto GoT.
+
+</div>

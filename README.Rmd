@@ -1,5 +1,12 @@
 
-### Tutorials
+### Análises
+
+- [Analisando avaliações de usuários do IMDB para séries](https://italo-batista.github.io/data-analyzis/analyzis_one/main.html)
+
+
+<br>
+
+### Tutoriais 
 
 - Markdown
     - [Reference Guide](https://www.rstudio.com/wp-content/uploads/2015/03/rmarkdown-reference.pdf) 
