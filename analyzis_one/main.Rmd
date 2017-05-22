@@ -3,6 +3,7 @@ title: "Analisando avaliações de usuários do IMDB para séries"
 output: html_document
 ---
 
+
 ##### Ítalo Medeiros
 
 ```{r setup, include=FALSE}
@@ -23,93 +24,113 @@ library("readr")
 
 <br>
 
-## Compreendendo os dados
+# Compreendendo os dados
+
+<div style="margin-top: 20px">
 
 Esta análise utiliza dados de séries extraídos do [IMDB](http://www.imdb.com). Esses dados foram organizados pelo prof. Nazareno e podem ser encontrados [neste repositório](https://github.com/nazareno/imdb-series).
 
+</div>
 ```{r warning=FALSE, error=FALSE, message=FALSE}
 dados = read_csv(file = "series_from_imdb.csv")
 ```
 
-Esses dados são referentes às avaliações que usuários deram a episódies das séries que assistiram. Eles têm a seguinte estrutura:
+<div style="margin-top: 20px;">
 
+Esses dados são referentes às avaliações que usuários deram a episódios das séries a que assistiram. Eles têm a seguinte estrutura:
+
+</div>
 ```some_language
-* $ series_name <chr> Auto-explicativo.
-* $ series_ep   <int> O número do episódio na série desde o primeiro.
-* $ season      <int> O número da temporada, começando em 1.
-* $ season_ep   <int> Número do episódio na série.
-* $ url         <chr> Url do IMDB para o episódio (eg "http://www.imdb.com/title/tt5174246/")
-* $ Episode     <chr> Título do episódio.
-* $ UserRating  <dbl> Avaliação geral para o episódio, calculado [como explicado em](http://www.imdb.com/help/show_leaf?votestopfaq).
-* $ UserVotes   <dbl> Número de votos para o episódio.
-* $ r1          <dbl> Proporção de avaliações dadas por usuários com nota 1
-* $ r2          <dbl> Proporção de avaliações dadas por usuários com nota 2
+  VARIÁVEL          EXPLICAÇÃO
+* series_name <chr> Nome da série.
+* series_ep   <int> Número do episódio na série desde o primeiro.
+* season      <int> Número da temporada, começando em 1.
+* season_ep   <int> Número do episódio na temporada.
+* url         <chr> Url do IMDB para o episódio (eg "http://www.imdb.com/title/tt5174246/")
+* Episode     <chr> Título do episódio.
+* UserRating  <dbl> Avaliação geral para o episódio.
+* UserVotes   <dbl> Número de votos para o episódio.
+* r1          <dbl> Proporção de avaliações com nota 1 dadas por usuários.
+* r2          <dbl> Proporção de avaliações com nota 2 dadas por usuários.
 * ...
-* $ r10         <dbl> Proporção de avaliações dadas por usuários com nota 10
+* $ r10         <dbl> Proporção de avaliações com nota 10 dadas por usuários.
 ```
 
-Para esta análise, usaremos os dados das seguintes séries:
+<div style="margin-top: 20px">
+
+Basicamente, cada episódios terá nome, série, índice na série, temporada, índice na temporada, avaliação geral, proporções de avaliações e link para o IMDB.
+Para esta análise, usaremos os dados das seguintes séries, em que (a falta de) critério foi o gosto pessoal:  
+
+  - Black Mirror
+  - Game of Thrones
   - Sense8
   - Stranger Things
-  - Black Mirror
   - The Simpsons
-  - Game of Thrones
   
+</div>
 ```{r pressure, results='hide'}
 dados = dados %>% 
   filter(series_name %in% c("Black Mirror", "Game of Thrones", "Stranger Things", "Sense8", "The Simpsons"))
 ```
 
-<div style="text-align: justify">
+<div style="text-align: justify; margin-top: 20px;">
 
-É preciso filtrar os dados da série The Simpsons para pegar apenas os episódios anteriores ao episódio número 204, pois a partir deste o número da temporado está calculado errado.
+É preciso filtrar os dados da série The Simpsons para pegar apenas os episódios anteriores ao episódio número 204, pois a partir deste episódio o número da temporada está calculado errado na base de dados usada. Desse modo, estaremos analisando a série The Simpsons apenas até a sua nona temporada.
 
 </div>
 ```{r}
 dados = dados %>% filter(series_ep < 204)
 ```
 
-<div style="text-align: justify">
+<div style="text-align: justify; margin-top: 20px;">
 
-Antes de começarmos a analisar os dados, é interessante saber saber como os dados se comportam, a fim de verificar se há existência de valores estranhos ou muito dispersos ou muito frequentes. Para tanto, iremos plotar um histograma, a fim de verificar visualmente.
+Antes de começarmos a analisar os dados, é interessante saber saber como os dados se comportam, a fim de verificar se há existência de valores mais diferentes ou muito dispersos ou muito frequentes. Para tanto, iremos plotar um gráfico de pontos, a fim de fazer a verificação visualmente.
 
 </div>
 ```{r fig.align='center'}
 dados %>% 
   mutate(Série = as.character(series_name)) %>% 
   ggplot(mapping = aes(x = series_ep, y = UserRating, color = Série)) + 
-  geom_point( alpha = 0.6) +
+  geom_jitter(alpha = .7, width = .5) +
+  
   xlab("Número do episódio ná seríe") + 
-  ylab("Avaliação geral do episódio")
+  ylab("Avaliação geral do episódio") +
+  ggtitle("Notas gerais de episódios ao longo da série") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
-<div style="text-align: justify">
+<div style="text-align: justify; margin-top: 20px;">
 
-O aspecto visual que mais chama a atenção neste gráfico é que The Simpsons parece trilhar um caminho próprio no quesito comportamento. Esta série tem um número de episódios muito superior ao das outras séries, além de, a partir de algum momento do tempo, ter uma concentração de avaliações de episódios abaixo da concentração de episódios das outras séries.  
-As outras séries parecem variar menos entre si, além de concentrarem uma maioria de avaliações acima de 8. Juntas, totalizam pouco mais de 100 episódios ao todo, dos quais apenas três estão abaixo de 8.0.
+O aspecto visual que mais chama a atenção neste gráfico é que The Simpsons parece trilhar um caminho próprio no quesito comportamento. Esta série tem um número de episódios muito superior ao das outras séries, além da seus episódios terem, em geral, uma nota de avaliação variando bastante entre 7 e 9.5, com apenas um ou outro episódio de nota inferior a sete.
+As outras séries parecem variar um pouco menos entre si, ou pelo menos não terem tantas irregularidades de avaliação por episódios quanto The Simpsons. Além disso, juntas elas concentram uma maioria de avaliações acima de 8. São mais de 100 episódios se somados, dos quais apenas aproximadamente cinco estão abaixo de 8.0. Já em The Simpsons são pouco mais de 200 episódios, em que um boa parte está abaixo de uma avaliação de 8 pontos.
 
 </div>
 
 <br>
 
-## Entre as séries, qual a melhor avaliada no IMDB? A diferença é grande? Pequena? 
+# Entre as séries, qual a melhor avaliada no IMDB? A diferença é grande? Pequena? 
+
+<div style="text-align: justify; margin-top: 20px;">
 
 Utilizando a avaliação geral por episódio calculada pelo IMDB, podemos discutir os seguintes pontos:
 
+</div>
 ```{r fig.align='center'}
 dados %>% 
   mutate(Série = as.character(series_name)) %>% 
-  ggplot( aes(x = Série, y = UserRating, color = Série) ) + 
+  ggplot( aes(x = Série, y = UserRating, color = Série)) + 
   geom_jitter(width = .4, height = .07, alpha = .6) +
   geom_boxplot(alpha = .4, width = 0.95) +
     
   theme(axis.title.x=element_blank()) +
-  ylab("Avaliação geral do episódio")
+  ylab("Avaliação geral do episódio") +
+  ggtitle("Cadê um título") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
-<div style="text-align: justify">
+<div style="text-align: justify; margin-top: 20px;">
 
-No gráfico acima, as linhas horizontais identificam as medianas das avaliaçãos para episódios agrupadas por série. Uma mediana basicamente divide os dados ao meio; no nosso caso, divide a quantidade de episódios de uma série ao meio. Desse modo, a partir deste gráfico, identificamos que Game of Thrones (GoT), Sense8 e Stranger Things competem entre as melhores, pois 50% dos episódios dessas séries são melhor avaliados que a maioria dos episódios de Black Mirror e de The Simpsons.  
+No gráfico acima, as linhas horizontais identificam as medianas das avaliaçãos para episódios agrupadas por série. Uma mediana basicamente é o valor central que divide os valores maiores dos menores; no nosso caso, agrupa 50% dos episódios acima e 50% abaixo. Desse modo, a partir deste gráfico, identificamos que Game of Thrones (GoT), Sense8 e Stranger Things competem entre as melhores, pois 50% dos episódios dessas séries são melhor avaliados que a maioria dos episódios de Black Mirror e de The Simpsons.  
 Vamos analisar mais de perto os dados das séries que concorrem em primeiro:
 
 </div>
@@ -117,19 +138,73 @@ Vamos analisar mais de perto os dados das séries que concorrem em primeiro:
 dados %>% 
   mutate(Série = as.character(series_name)) %>% 
   filter(series_name %in% c("Game of Thrones", "Stranger Things", "Sense8")) %>%
-  ggplot( aes(x = Série, y = UserRating, color = Série) ) + 
+  ggplot( aes(x = Série, y = UserRating, color = Série)) + 
   geom_violin(alpha = .4) +
   geom_jitter(width = .1, height = .07, alpha = .7) +
   stat_summary(fun.y = median, fun.ymin = median, fun.ymax = median, geom = "crossbar", width = 1) +
   
-  theme(axis.title.x=element_blank()) +
-  ylab("Avaliação geral do episódio")
+  ylab("Avaliação geral do episódio") +
+  ggtitle("Cadê um título") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  theme(axis.title.x=element_blank())
 ```
 
-<div style="text-align: justify">
+<div style="text-align: justify; margin-top: 20px;">
 
 Sense8 parece ser um pouco melhor avaliada que as outras séries, já que sua mediana está num nível ligeiramente acima. Contudo, pela diferença ser tão pequena, isso não é suficiente para fazer Sense8 ser a melhor série.  
 Algo bastante significativo é o fato de Got ter um número considerável de episódios avaliados acima de 9.5, com 4 avaliados em quase 10 (9.9), enquanto Sense8 tem um número menor de episódios avaliados acima de 9.5. Além disso, a menor avaliação de Got é 8, enquanto em Sense8 a menor avaliação é 7.5.  
 Importa aqui dizer que GoT tem um número de episódios maior que o dobro do número de episódios de Sense8 e Stranger Things, o que talvez tornasse injusto dar-lhe o crédito de melhor série entre as cinco levadas em conta nesta análise. Todavia, pelos gráficos, constatamos que GoT tem um comportamento mais harmônico, no sentido de que sempre foi *muito* bem avaliada, demonstrando que sempre agradou o público. É verdade que Stranger Things, cuja menor avaliação geral para um episódio é 8.5, também agradou muito ao público, mas não chegou a alcançar notas tão altas quanto GoT.
 
 </div>
+<br>
+
+
+#  Qual das séries têm episódios de qualidade mais irregular segundo o IMDB? A diferença é grande? Pequena?
+
+<div style="text-align: justify; margin-top: 20px;">
+
+Para responder a essa pergunta, iremos trabalhar com um conceito chamado *desvio padrão*, um parâmetro muito usado em estatística que indica o grau de variação de um conjunto de elementos. No nosso caso, usaremos o desvio padrão para indicar o grau de varição das avaliações dos episódios de uma série. Portanto, quanto maior o desvio padrão, maior será a irregularidade entre as notas dos episódios de uma série — as notas variam muito de um episódio para outro.
+
+</div>
+
+```{r fig.align='center'}
+dados.dp <- dados %>%
+  mutate(Série = as.character(series_name)) %>% 
+  group_by(Série) %>%
+  summarise(dp = sd(UserRating))
+
+dados.dp %>%
+ggplot(aes(x = reorder(Série, dp), y = dp, fill = Série)) +
+  geom_bar(stat = "identity", alpha = .7, width = .75) +
+  
+  ggtitle("Desvio padrão das avaliações das séries (usando DP)") + 
+  ylab("Desvio padrão") + 
+  theme(plot.title = element_text(hjust = .5, size = 12)) +
+  theme(axis.title.y=element_blank()) +
+  coord_flip() 
+```
+
+<div style="text-align: justify; margin-top: 20px;">
+
+Falar alguma coisa sobre valores outliers que irão influenciar
+
+</div>
+
+```{r fig.align='center'}
+dados.iqr <- dados %>%
+  mutate(Série = as.character(series_name)) %>% 
+  group_by(Série) %>%
+  summarise(dp = IQR(UserRating))
+
+dados.iqr %>%
+ggplot(aes(x = reorder(Série, dp), y = dp, fill = Série)) +
+  geom_bar(stat = "identity", alpha = .7, width = .75) +
+  
+  ggtitle("Desvio padrão das avaliações das séries (usando IQR)") + 
+  ylab("Desvio padrão") + 
+  theme(plot.title = element_text(hjust = .5, size = 12)) +
+  theme(axis.title.y=element_blank()) +
+  coord_flip() 
+```
+
+<br>
