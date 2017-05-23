@@ -12,6 +12,7 @@
     - [Reference Guide](https://www.rstudio.com/wp-content/uploads/2015/03/rmarkdown-reference.pdf) 
     - [Lessons](http://rmarkdown.rstudio.com/lesson-3.html) 
     - [Fast GitHub](https://guides.github.com/features/mastering-markdown/)
+    - [Styling](http://rmarkdown.rstudio.com/html_document_format.html)
 
 - Emoji
     - [Emoji Cheat Set](https://www.webpagefx.com/tools/emoji-cheat-sheet/)
