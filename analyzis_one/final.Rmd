@@ -1,0 +1,107 @@
+---
+title: "Analisando avaliações de usuários do IMDB para séries"
+output: html_document
+theme: united
+highlight: tango
+css: styles.css
+---
+
+
+##### Ítalo Medeiros
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align='center')
+```
+
+<br>
+
+Esta análise utiliza dados de séries extraídos do [IMDB](http://www.imdb.com). Esses dados foram organizados pelo prof. Nazareno e podem ser encontrados [neste repositório](https://github.com/nazareno/imdb-series). Neste estudo estaremos interessados em discutir <tema geral, etc, etc>. Iremos conduzir a análise com base em duas perguntas principais:
+
+- O número de votos decresce significativamente quanto mais longa for a série?
+- O número de notas mais baixas (abaixo de 5) é influenciado pelo número de votos?
+
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+#library("tidyverse")
+```
+```{r include = FALSE, results = 'hide', echo=FALSE}
+library("tidyr")
+library("dplyr")
+library("ggplot2")
+library("readr")
+```
+```{r warning=FALSE, error=FALSE, message=FALSE}
+dados = read_csv(file = "series_from_imdb.csv")
+```
+
+<br>
+
+# Panorama geral
+
+<p>
+Esses dados são referentes às avaliações que usuários deram a episódios das séries a que assistiram. Eles têm a seguinte estrutura:
+</p>
+
+```some_language
+  VARIÁVEL          EXPLICAÇÃO
+* series_name <chr> Nome da série.
+* series_ep   <int> Número do episódio na série desde o primeiro.
+* season      <int> Número da temporada, começando em 1.
+* season_ep   <int> Número do episódio na temporada.
+* url         <chr> Url do IMDB para o episódio (eg "http://www.imdb.com/title/tt5174246/")
+* Episode     <chr> Título do episódio.
+* UserRating  <dbl> Avaliação geral para o episódio.
+* UserVotes   <dbl> Número de votos para o episódio.
+* r1          <dbl> Proporção de avaliações com nota 1 dadas por usuários.
+* r2          <dbl> Proporção de avaliações com nota 2 dadas por usuários.
+* ...
+* $ r10         <dbl> Proporção de avaliações com nota 10 dadas por usuários.
+```
+
+<p>
+Basicamente, cada episódio terá nome, série, número de episódio na série, temporada, número de episódio na temporada, avaliação geral, proporções de avaliações e link para o IMDB.
+Para esta análise, usaremos os dados das seguintes séries, em que (a falta de) critério foi o gosto pessoal:  
+
+  - Black Mirror
+  - Game of Thrones
+  - Sense8
+  - Stranger Things
+  - The Simpsons
+</p>
+
+```{r pressure, results='hide'}
+dados = dados %>% 
+  filter(series_name %in% c("Black Mirror", "Game of Thrones", "Stranger Things", "Sense8", "Arrow"))
+```
+
+
+# Perguntas
+
+## O número de votos decresce significativamente quanto mais longa for a série?
+
+<p>
+Para responder a esta pergunta, daremos mais atenção à variável UserVotes, que guarda o número de votos que o episódio recebeu, e a variável season_ep, que indica o número do eísódio ao longo da série.
+</p>
+
+<p>
+Vamos ver o comportamento dessas duas varáveis para as séries escolhidas, a fim de ter uma primeira visão sobre os dados e verificar se há valores extremos.
+</p>
+
+```{r fig.height=6}
+dados %>% 
+  ggplot(aes(x = series_ep, y = log(UserVotes), color = series_name)) + 
+  geom_jitter(width = 0.6, alpha = 0.6) +
+  scale_y_continuous(expand=c(0,0)) +
+  facet_grid(series_name ~ .) +
+  
+  theme_bw() +
+  labs(title = 'Número de votos ao longo da série', 
+           x = 'Número do episódio',
+           y = 'Log do número de votos') +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position="none")
+
+```
+
+
+
