@@ -1,6 +1,11 @@
 ---
 title: "Analisando avaliações de usuários do IMDB para séries"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_depth: 6
+    toc_float:
+      collapsed: false
 theme: united
 highlight: tango
 css: styles.css
@@ -14,15 +19,13 @@ knitr::opts_chunk$set(echo = TRUE, fig.align='center')
 ```
 
 <br>
-
 Esta análise utiliza dados de séries extraídos do [IMDB](http://www.imdb.com). Esses dados foram organizados pelo prof. Nazareno e podem ser encontrados [neste repositório](https://github.com/nazareno/imdb-series). Neste estudo estaremos interessados em discutir <tema geral, etc, etc>. Iremos conduzir a análise com base em duas perguntas principais:
 
 - O número de votos decresce significativamente quanto mais longa for a série?
 - O número de notas mais baixas (abaixo de 5) é influenciado pelo número de votos?
 
-
 ```{r warning=FALSE, message=FALSE, error=FALSE}
-#library("tidyverse")
+library("tidyverse")
 ```
 ```{r include = FALSE, results = 'hide', echo=FALSE}
 library("tidyr")
@@ -38,70 +41,319 @@ dados = read_csv(file = "series_from_imdb.csv")
 
 # Panorama geral
 
-<p>
 Esses dados são referentes às avaliações que usuários deram a episódios das séries a que assistiram. Eles têm a seguinte estrutura:
-</p>
 
 ```some_language
   VARIÁVEL          EXPLICAÇÃO
-* series_name <chr> Nome da série.
-* series_ep   <int> Número do episódio na série desde o primeiro.
-* season      <int> Número da temporada, começando em 1.
-* season_ep   <int> Número do episódio na temporada.
-* url         <chr> Url do IMDB para o episódio (eg "http://www.imdb.com/title/tt5174246/")
-* Episode     <chr> Título do episódio.
-* UserRating  <dbl> Avaliação geral para o episódio.
-* UserVotes   <dbl> Número de votos para o episódio.
-* r1          <dbl> Proporção de avaliações com nota 1 dadas por usuários.
-* r2          <dbl> Proporção de avaliações com nota 2 dadas por usuários.
-* ...
-* $ r10         <dbl> Proporção de avaliações com nota 10 dadas por usuários.
+  series_name <chr> Nome da série.
+  series_ep   <int> Número do episódio na série desde o primeiro.
+  season      <int> Número da temporada, começando em 1.
+  season_ep   <int> Número do episódio na temporada.
+  url         <chr> Url do IMDB para o episódio (eg "http://www.imdb.com/title/tt5174246/")
+  Episode     <chr> Título do episódio.
+  UserRating  <dbl> Avaliação geral para o episódio.
+  UserVotes   <dbl> Número de votos para o episódio.
+  r1          <dbl> Proporção de avaliações com nota 1 dadas por usuários.
+  r2          <dbl> Proporção de avaliações com nota 2 dadas por usuários.
+  ...
+  r10         <dbl> Proporção de avaliações com nota 10 dadas por usuários.
 ```
 
-<p>
-Basicamente, cada episódio terá nome, série, número de episódio na série, temporada, número de episódio na temporada, avaliação geral, proporções de avaliações e link para o IMDB.
-Para esta análise, usaremos os dados das seguintes séries, em que (a falta de) critério foi o gosto pessoal:  
+Basicamente, cada episódio terá nome, série, número de episódio na série, temporada, número de episódio na temporada, avaliação geral, proporções de avaliações e link para o IMDB.  
+Para esta análise, usaremos os dados das seguintes séries, escolhidas por apresentarem quantidades bem diferentes de número de episódios:  
 
+  - Arrow
   - Black Mirror
-  - Game of Thrones
+  - Game of Thrones (GoT)
   - Sense8
   - Stranger Things
-  - The Simpsons
-</p>
+ 
 
 ```{r pressure, results='hide'}
 dados = dados %>% 
-  filter(series_name %in% c("Black Mirror", "Game of Thrones", "Stranger Things", "Sense8", "Arrow"))
+  filter(series_name %in% c("Arrow",  "Dexter", "Game of Thrones", "Prison Break", "Vikings"))
 ```
 
+<br> 
 
 # Perguntas
+## O número de votos por episódio decresce quanto mais longa for uma série?
 
-## O número de votos decresce significativamente quanto mais longa for a série?
+Esta pergunta parte do pressuposto (de conhecimento de domínio comum, não-científico) de que quanto mais longa for uma série, maior a chance de uma pessoa parar de assisti-la com a mesma animação e portanto menor a motivação para avaliá-la. Além disso, é quase sempre impossível que uma pessoa comece a assistir uma série do meio (Black Mirror, contudo, por não ter uma ordem, pode ser assistida livremente em qualquer ordem), o que nos faz acreditar que há um decrescimento significativo do número de votos por episódios quanto maior for o índice do episódios na série. Tendo como base essa hipótese, queremos investigar se o número de votos por episódio decresce quanto mais episódios uma série tiver.
 
-<p>
 Para responder a esta pergunta, daremos mais atenção à variável UserVotes, que guarda o número de votos que o episódio recebeu, e a variável season_ep, que indica o número do eísódio ao longo da série.
-</p>
 
-<p>
-Vamos ver o comportamento dessas duas varáveis para as séries escolhidas, a fim de ter uma primeira visão sobre os dados e verificar se há valores extremos.
-</p>
+Agora vamos ver *como se comportam essas duas varáveis* (para as séries escolhidas), a fim de termos uma primeira visão sobre os dados e verificar a existência de valores extremos.
+ 
+<div id="grafico1">
+```{r}
+dados %>% 
+  ggplot( aes(x = series_name, y = UserVotes, color = series_name)) + 
+  geom_jitter(width = .4, height = .07, alpha = .6) +
+  geom_boxplot(alpha = .4, width = 0.95) +
+  
+  theme_bw() +
+  theme(axis.title.x = element_blank(), 
+        legend.position = "none", 
+        plot.title = element_text(hjust = 0.5)) +
+  labs(title = 'Número de votos ao longo da série', y = 'Número de votos')
+```
+</div>
 
-```{r fig.height=6}
+TIPS:
+Falar sobre como a diferença dentro de GoT já é grande. E como é muito maior se comparada as outras séries, cujo boxplot fica é esmagado e vira uma linha. Em GoT, então, há grandes diferenças de números de votos por episódio? Será que votavam mais na primeira temporada, ou na segunda? A audiência foi aumentado ou caindo?
+
+Explicar boxplot.  
+
+<div id="grafico2">
+```{r}
+dados %>% 
+  filter(series_name != "Game of Thrones") %>%
+  ggplot( aes(x = series_name, y = UserVotes/10, color = series_name)) + 
+  geom_jitter(width = .4, height = .07, alpha = .6) +
+  geom_boxplot(alpha = .4, width = 0.95) +
+  
+  theme_bw() +
+  theme(axis.title.x = element_blank(), 
+        legend.position = "none", 
+        plot.title = element_text(hjust = 0.5)) +
+  labs(title = 'Número de votos ao longo da série', y = 'Log do número de votos')
+```
+</div>
+
+Vistas mais de perto, estas séries parecem bem diferentes entre si. Arrow tem valores mais concentrados. Seus extremos, contudo, distam muito da cocentração, o que não é o caso das outras três séries. Stranger Things também tem números de votos por episódios mais concentrados, sem muita variação, mas não tem valores extremos. Sense8 têm dois grupos bem distintos, porém cada um concentrado em si. Black Mirror, por fim, têm os valores mais dispersos entre as séries.  
+
+<div id="grafico3">
+```{r fig.height=6, message=FALSE}
 dados %>% 
   ggplot(aes(x = series_ep, y = log(UserVotes), color = series_name)) + 
-  geom_jitter(width = 0.6, alpha = 0.6) +
+  geom_jitter(width = 0.6, alpha = 0.6, size=1) +
+  geom_smooth(alpha=0.3) +
   scale_y_continuous(expand=c(0,0)) +
   facet_grid(series_name ~ .) +
   
   theme_bw() +
-  labs(title = 'Número de votos ao longo da série', 
-           x = 'Número do episódio',
-           y = 'Log do número de votos') +
-  theme(plot.title = element_text(hjust = 0.5),
-        legend.position="none")
+  theme(plot.title = element_text(hjust = 0.5), legend.position="none") +
+  labs(title = 'Gráfico 3 - Número de votos ao longo da série', x = 'Número do episódio', y = 'Log do número de votos')
+```
+</div>
+
+TIPS:
+Falar sobre como black mirror e stranger things, que tem menos episódios, têm episódios que no geral recebem mais votos que séries como Arrow e Sense8, que têm mais episódios.
+
+Sense8 tem um declíneo, mas o motivo é que a 2ª temporada é recente.
+Arrow, que dentre as cinco é a de maior tamanho, tem a nuvem de valores mais baixa. Apesar de ser uma curva decrescente, ela não é representativa, não significa um decrescimento significativo.
+GoT, no entando, tem a nuvem mais alta, sem muita variação, exceto um leve crescimento.
+Poranto, parece não haver nenhuma relação entre o número de episódios de uma série e o número de votos que seus episódios recebem.  
+
+Fazer a conversão de log.
+
+Introduzir conceito de correlação
+
+Explicar a de pearson.
+
+```{r}
+dados.corr = dados %>% 
+  group_by(series_name) %>% 
+  summarise(correlacao = cor(UserVotes, series_ep, method = "pearson"))
+
+dados.corr %>%
+  ggplot(aes(x = reorder(series_name, correlacao), y = correlacao, fill = series_name)) +
+  geom_bar(stat = "identity", alpha = .7, width = .75) +
+  
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position="none") +
+  theme(axis.title.y=element_blank()) +
+  labs(title = 'Gráfico 4 - Correlação entre audiência da série e seu tamanho', 
+       y = 'Correlação entre o número do episódio na série e o número de avaliações que recebeu ') +
+  coord_flip() 
+```
+
+ 
+Ok, n sei o que dizer.
+
+Em geral, parece que os usuários tendem continuar avaliando a série a que assistem. Não há exatamente um padrão. É esperado que o número de avaliações vá diminuindo, porque usuários costumam deixar de continuar seguindo uma série. Mas não é exatamente significativo o decrescimento.
+
+No [grafico três](#grafico3) verificamos que, para nossa surpresa, duas séries (Dexter e GoT) tiveram um crescimento no número de avaliações por episódios da séries. Ou seja, usuários que não costumavam avaliar uma série fizeram questão de avaliar determinados episódios. Qual teria sido a motivação? Gostaram muito do episódios? Ou odiaram? Vamos investigar!  
+ 
+### Quando os usuários votaram mais?
+**Quando odiaram ou amaram um episódios de sua série?**
+
+Primeiro vamos ver como as diferentes séries foram avaliados ao longo de seus episódios. Para isso, vamos relacionar um episódio (series_ep) à sua  avaliação geral (UserRating).
+
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+dados$categoria = ifelse(dados$UserRating >= 9, "otimo", 
+                  ifelse(dados$UserRating >= 8, "bom",       
+                  ifelse(dados$UserRating >= 7, "medio", "ruim")))
+
+dados %>%
+  ggplot(aes(x = series_ep, y = UserRating)) +
+  #stat_summary(fun.y=mean, geom="line", lwd=0.5, aes(group=10)) +
+  geom_smooth(methoed="loess") +
+  geom_point(alpha = 0.6, size = 1, aes(color=categoria)) +
+  scale_color_manual(values = c("otimo"="darkblue", "bom"="green", "medio"="orange", "ruim"="red")) +
+  facet_wrap(~ series_name, ncol = 2) +
+
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position="none") +
+  labs(title = 'Gráfico 6 - Avaliações das séries ao longo do tempo', y = 'Avaliação do episódio (UserRating)', x = 'Número do episódio (series_ep)')
+```
+
+No geral, as séries têm episódios  
+Uma boa abordagem é entender como se relacionam a variável UserVotes (o número de avaliações que um episódio recebeu) e UserRating (a avaliação geral dada para o episódio).  
+ 
+```{r fig.height=6, message=FALSE, warning=FALSE, error=FALSE}
+dados %>% 
+  ggplot(aes(x = UserRating, y = log(UserVotes))) + 
+  geom_smooth(method = "loess", color="yellow") +
+  geom_jitter(width = 0.2, alpha = 0.6, size = 1, aes(color = categoria)) +
+  scale_color_manual(values = c("otimo"="darkblue", "bom"="green", "medio"="orange", "ruim"="red")) +
+  facet_grid(series_name ~ .) +
+  
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position="none") +
+  labs(title = 'Gráfico 5 - Número de votos e avaliação', x = 'Avaliação do episódio', y = 'Log do número de votos')
+```
+
+agora sem GoT  
+
+```{r fig.height=6, message=FALSE, warning=FALSE, error=FALSE}
+dados %>% 
+  filter(series_name != "Game of Thrones") %>%
+  ggplot(aes(x = UserRating, y = UserVotes, color=categoria)) + 
+  geom_smooth(method = "loess", color="yellow") +
+  geom_jitter(width = 0.2, alpha = 0.6, size = 2) +
+  scale_color_manual(values = c("otimo"="darkblue", "bom"="green", "medio"="orange", "ruim"="red")) +
+  facet_grid(series_name ~ .) +
+  
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position="none") +
+  labs(title = 'Gráfico 6 - Número de votos e avaliação', x = 'Avaliação do episódio', y = 'Nmero de votos')
+```
+
+<br>
+
+## As season finales costumam ser melhor avaliadas que os outros episódios?
+
+Contextualizar bla bla bla.
+Falar que via usar a variável season, pois cad ep está associado a uma temporada.
+
+```{r fig.height=7}
+season_max = dados %>%
+  group_by(series_name, season) %>%
+  summarise(UserRating = max(UserRating))
+
+season_max$max_season_rate = TRUE
+
+dados.max.season.rate = left_join(dados, season_max, by = c("series_name", "season", "UserRating"))
+dados.max.season.rate$max_season_rate = ifelse(is.na(dados.max.season.rate$max_season_rate), FALSE, TRUE)
+
+dados.max.season.rate %>% 
+  ggplot(aes(x=season_ep, y=UserRating, group=series_name)) + 
+  geom_jitter(alpha=0.6, aes(color=max_season_rate)) +
+  scale_color_manual(values = c("FALSE"="darkblue", "TRUE"="red")) +
+  facet_grid(series_name ~ season) +
+  
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "None") +
+  labs(title = 'Gráfico 6 - Número de votos e avaliação', x = 'Avaliação do episódio', y = 'Nmero de votos')
+```
+
+Falar, diferenciar entre séries, etc.
+Pintandoa penas quando é o máximo e o último
+
+```{r fig.height=7}
+season_finales = dados %>%
+  group_by(series_name, season) %>%
+  summarise(season_ep = max(season_ep))
+
+season_finales$is_season_finale = TRUE
+
+dados.season.finales = left_join(dados.max.season.rate, season_finales, by = c("series_name", "season", "season_ep"))
+dados.season.finales$is_season_finale = ifelse(is.na(dados.season.finales$is_season_finale), FALSE, TRUE)
+dados.season.finales$max_rate_season_finale = ifelse(dados.season.finales$is_season_finale == TRUE &
+                                                     dados.season.finales$max_season_rate == TRUE, TRUE, FALSE)
+
+dados.season.finales %>% 
+  ggplot(aes(x=season_ep, y=UserRating, group=series_name)) + 
+  geom_jitter(alpha=0.6, aes(color=max_rate_season_finale)) +
+  scale_color_manual(values = c("FALSE"="darkblue", "TRUE"="red")) +
+  facet_grid(series_name ~ season) +
+  
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "None") +
+  labs(title = 'Gráfico 6 - Número de votos e avaliação', x = 'Avaliação do episódio', y = 'Nmero de votos')
+```
+
+Falar como são poucas as quantidades de season finales que são maior que as outras.
+
+
+É curioso que que nem todas season finalies sejam as melhor avaliadas, visto que geralmente esses episódios são os de maior carga dramática/suspensa. Vamos verificar a proporção de haters (detestaram) e lovers (muito satisfeitos) das season finales. Será que no geral há mais haters ou lovers?
+
+
+### Há mais haters ou lovers de season finales?
+
+Hater -> avaliou abaixo de 5
+Lover -> avaliou acima 8
+Likers -> avaliou entre 6 e 7
+
+Explicar o que é r1, r2, r3...
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+dados.prop = dados.season.finales
+dados.prop$haters = rowSums(dados.prop[,c('r1', 'r2', 'r3', 'r4', 'r5')], na.rm=TRUE)
+dados.prop$lovers = rowSums(dados.prop[,c('r8', 'r9', 'r10')], na.rm=TRUE)
+dados.prop$likers = rowSums(dados.prop[,c('r6', 'r7')], na.rm=TRUE)
+
+dados.s.f.p = dados.prop %>%
+  filter(is_season_finale == TRUE) %>%
+  select(-url, -Episode, -max_season_rate, -max_rate_season_finale, -is_season_finale)
+
+dados.s.f.p %>% 
+  ggplot() + 
+  geom_bar(stat = "identity", aes(x=1, y=haters, fill="orange")) +
+  geom_bar(stat = "identity", aes(x=2, y=likers, fill="yellow")) +
+  geom_bar(stat = "identity", aes(x=3, y=lovers, fill="red")) +
+  facet_grid(series_name ~ season) +
+  
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position = "None") +
+  labs(title = 'Gráfico 6 - Número de votos e avaliação', x = 'Avaliação do episódio', y = 'Nmero de votos')
 
 ```
 
 
 
+
+
+
+
+
+
+
+```{r}
+dados %>% 
+  ggplot(aes(group = series_name, x = series_ep, y = UserRating)) + 
+  geom_boxplot(alpha = 0.6, outlier.colour = NA) +
+  geom_jitter(alpha = 0.6, size = 1, aes(color=categoria)) +
+  scale_color_manual(values = c("otimo"="darkblue", "bom"="green", "medio"="orange", "ruim"="red")) +
+  facet_grid(~series_name) +
+  
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5), legend.position="none") +
+  labs(title = 'Gráfico 6 - Número de votos e avaliação', x = 'Avaliação do episódio', y = 'Nmero de votos')
+```
+
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+dados %>%
+  ggplot(aes(x = series_ep, y = UserRating, color = series_name)) +
+    geom_line(alpha = 0.9, lwd=0.5) +
+    stat_summary(aes(y=UserRating, group=1), fun.y = mean, colour="red", geom="line", group=1) +
+
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(title = 'Gráfico 6 - Avaliações das séries ao longo do tempo', y = 'Avaliação do episódio (UserRating)', x = 'Número do episódio (series_ep)')
+```

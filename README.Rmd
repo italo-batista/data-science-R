@@ -1,7 +1,7 @@
 
 ### Análises
 
-- [Analisando avaliações de usuários do IMDB para séries](https://italo-batista.github.io/data-analyzis/analyzis_one/main.html)
+- [Analisando avaliações de usuários do IMDB para séries](https://italo-batista.github.io/data-analyzis/analyzis_one/analyzis.html)
 
 
 <br>
