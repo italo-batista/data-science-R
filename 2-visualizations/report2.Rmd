@@ -28,6 +28,7 @@ Esta análise utiliza dados de séries extraídos do [IMDB](http://www.imdb.com)
 library("tidyverse")
 library("htmlwidgets")
 library("plotly")
+library("zoo")
 ```
 ```{r include = FALSE, results = 'hide', echo=FALSE}
 library("tidyr")
@@ -36,6 +37,7 @@ library("ggplot2")
 library("readr")
 library("htmlwidgets")
 library("plotly")
+library("zoo")
 ```
 ```{r warning=FALSE, error=FALSE, message=FALSE}
 dados = read_csv(file = "series_from_imdb.csv")
@@ -66,19 +68,27 @@ Primeiro vamos ver como as diferentes séries foram avaliadas ao longo de seus e
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 
-  plot_ly(data=dados, 
-          x=~series_ep,
-          y=~UserRating,
-          color=~series_name,
-          type="scatter",
-          colors = c("darkblue", "grey", "deeppink", "orange", "green"),
-          text = ~paste("Avaliação: ", UserRating, "\nSérie: ", series_name, "\nSeason: ", season)) %>%
-  layout(title="Gráfico 1 - Notas gerais de episódios ao longo da série", 
-         yaxis = list(title="Avaliação geral do episódio"),
-         xaxis = list(
-           list(title="Número do episódio ná seríe"),
-           rangeslider = list(type = "numeric")))
+dados$categoria = ifelse(dados$UserRating >= 9, "otimo", 
+                  ifelse(dados$UserRating >= 8, "bom",       
+                  ifelse(dados$UserRating >= 7, "medio", "ruim")))
 
+plot_ly(data=dados, x=~series_ep, y=~UserRating,
+        color=~series_name, colors = c("darkblue", "aquamarine4", "darkgoldenrod1", "coral", "darkred"),
+        text = ~paste("Série: ", series_name, "\nAvaliação: ", UserRating, "\nCategoria: ", categoria, "\nNº votos: ", UserVotes)) %>%
+    
+add_trace(size=~log(UserVotes, base = 4), color=~series_name) %>%
+  
+    add_trace(x = ~series_ep,                                        
+            y = ~fitted((loess(UserRating ~ as.numeric(series_ep)))),  
+            mode = 'lines',                                    
+            line = list(                                  
+              dash = "dashed"                                  
+            )
+  ) %>%
+
+layout(title="Notas gerais de episódios ao longo da série", 
+       yaxis = list(title="Avaliação geral do episódio"),
+       xaxis = list(rangeslider = list(type = "numeric")))
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
@@ -89,7 +99,7 @@ pbreak = dados %>% filter(series_name == "Prison Break")
 vikings = dados %>% filter(series_name == "Vikings")
 
 plot_ly() %>%
-add_lines(data=got, x = ~series_ep, y = ~UserRating, name = "Game Of Thrones", line = list(color = "deeppink")) %>%
+add_lines(data=got, x = ~series_ep, y = rollmean~UserRating, name = "Game Of Thrones", line = list(color = "deeppink")) %>%
 add_lines(data=dexter, x = ~series_ep, y = ~UserRating, name = "Dexter", line = list(color = "darkblue")) %>%
 add_lines(data=arrow, x = ~series_ep, y = ~UserRating, name = "Arrow", line = list(color = "grey")) %>%
 add_lines(data=pbreak, x = ~series_ep, y = ~UserRating, name = "Prison Break", line = list(color = "orange")) %>%
@@ -97,79 +107,6 @@ add_lines(data=vikings, x = ~series_ep, y = ~UserRating, name = "Vikings", line 
 
 ```
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
-dados$categoria = ifelse(dados$UserRating >= 9, "otimo", 
-                  ifelse(dados$UserRating >= 8, "bom",       
-                  ifelse(dados$UserRating >= 7, "medio", "ruim")))
-
-dados %>%
-  ggplot(aes(x = series_ep, y = UserRating)) +
-  #stat_summary(fun.y=mean, geom="line", lwd=0.5, aes(group=10)) +
-  geom_smooth(methoed="loess") +
-  geom_point(alpha = 0.6, size = 1, aes(color=categoria)) +
-  scale_color_manual(name="Avaliação do episódio", values = c("otimo"="darkblue", "bom"="green", "medio"="orange", "ruim"="red"), labels=c("Bom", "Médio", "Ótimo", "Ruim")) +
-  facet_wrap(~ series_name, ncol = 2) +
-
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  theme(legend.position="right") +
-  labs(title = 'Gráfico 5 - Avaliações das séries ao longo do tempo', y = 'Avaliação do episódio (UserRating)', x = 'Número do episódio (series_ep)')
-```
-
-Se lembrarmos do [gráfico três](#grafico3), para as duas séries cujo número de avaliações foi caindo ao longo do tempo (Arrow e Prison Break), vemos que as notas dos episódios também não se mantiveram parecidas. Em Arrow, apenas um perído específico teve avaliações muito diferentes (e médias/ruins). Em Prison Break, mais perto do 70 º episódio, as notas caíram ligeiramente.
-
-Outra fato interessante que podemos ver é que as duas séries que tiveram mais avaliações ao decorrer do tempo (GoT e Dexter) se comportam de maneiras distintas. Enquanto que em GoT o número de avaliações cresceu com o número da nota por episódio, em Dexter o número de avaliações cresceu cada vez que as pessoas gostavam menos dos episódios.
-
-###  Pergunta 2.1
-**Há mais haters ou lovers de season finales?**
-
-Como apresentamos no [início](#vars), cada episódio contém variáveis nomeadas r1, r2, r3, ..., r10, em que cada uma corresponde a proporção de usuários que votaram naquela nota (ex: se r1 = 0.1, então 10% dos usuários votaram 1 em determinado episódio).
-
-Vamos fazer a seguinte consideração:
-
-```some_language
- Hater -> avaliou abaixo de 6 (r1, r2, r3, r4, r5)
- Likers -> avaliou entre 6 e 8 (r6, r7, r8)
- Lover -> avaliou acima ou igual 9 (r9, r10)
-```
-
-Vamos ver agora como se distribuiu essa proporação nas season finales das temporadas.
-
-```{r warning=FALSE, error=FALSE, message=FALSE}
-
-season_finales = dados %>%
-  group_by(series_name, season) %>%
-  summarise(season_ep = max(season_ep), is_season_finale = TRUE)
-
-dados.season.finales = left_join(dados, season_finales, by = c("series_name", "season", "season_ep"))
-dados.season.finales$is_season_finale = ifelse(is.na(dados.season.finales$is_season_finale), FALSE, TRUE)
-
-dados.prop = dados.season.finales
-dados.prop$haters = rowSums(dados.prop[,c('r1', 'r2', 'r3', 'r4', 'r5')], na.rm=TRUE)
-dados.prop$lovers = rowSums(dados.prop[,c('r9', 'r10')], na.rm=TRUE)
-dados.prop$likers = rowSums(dados.prop[,c('r6', 'r7', 'r8')], na.rm=TRUE)
-
-dados.s.f.p = dados.prop %>%
-  filter(is_season_finale == TRUE) %>%
-  select(-url, -Episode)
-
-dados.s.f.p %>% 
-  ggplot() + 
-  geom_bar(stat = "identity", aes(x=1, y=haters, fill="Haters")) +
-  geom_bar(stat = "identity", aes(x=2, y=likers, fill="Likers")) +
-  geom_bar(stat = "identity", aes(x=3, y=lovers, fill="Lovers")) +
-  scale_fill_manual(name="Categoria de usuário:", values = c("Haters"="orange", "Likers"="darkgrey", "Lovers"="deeppink")) +
-  facet_grid(series_name ~ season) +
-  
-  
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5), legend.position = "bottom") +
-  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
-  labs(title = 'Gráfico 10 - Aceitação de usuários às season finales', y = 'Proporção por categoria de usuário')
-
-```
-
-Pelo gráfico vemos que **em geral a maioria dos usuários amam as season finales**. Há alguns casos atípicos, como a última temporada de Dexter, em que a maioria do público odiou, ou as quartas temporadas de Arrow e de Prison Break, em que o público se dividiu entre gostar ou amar, e a primeira temporada de Vikings, em que menos pessoas amaram.
 
 <br>
 <br>
