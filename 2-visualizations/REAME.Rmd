@@ -14,5 +14,6 @@ This analysis uses data organized by [this repository](https://github.com/nazare
 
 ### Tips and Tricks and Tutorials
 
-- [Colours to Plotly in R](https://moderndata.plot.ly/create-colorful-graphs-in-r-with-rcolorbrewer-and-plotly/)
+- https://github.com/rstudio/dygraphs/
+- http://rstudio.github.io/dygraphs/
 
