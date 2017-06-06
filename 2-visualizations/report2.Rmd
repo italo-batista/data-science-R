@@ -1,14 +1,10 @@
 ---
-title: "Visualizando avaliações de usuários do IMDB para séries"
+title: "Avaliações de usuários do IMDB para séries"
 output:
   html_document:
-    fig_width: 6
-    fig_height: 6
-    toc: true
+    fig_width: 9
+    fig_height: 7
     theme: journal
-    toc_depth: 6
-    toc_float:
-      collapsed: false
 theme: united
 highlight: tango
 css: styles.css
@@ -17,19 +13,6 @@ css: styles.css
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, fig.align='center')
 ```
-
-<br>
-Esta análise utiliza dados de séries extraídos do [IMDB](http://www.imdb.com). Esses dados foram organizados pelo prof. Nazareno e podem ser encontrados [neste repositório](https://github.com/nazareno/imdb-series). Neste estudo estaremos interessados em discutir <tema geral, etc, etc>. Iremos conduzir a análise com base em duas perguntas principais:
-
-- O número de votos decresce significativamente quanto mais longa for a série?
-- O número de notas mais baixas (abaixo de 5) é influenciado pelo número de votos?
-
-```{r warning=FALSE, message=FALSE, error=FALSE}
-library("tidyverse")
-library("htmlwidgets")
-library("plotly")
-library("zoo")
-```
 ```{r include = FALSE, results = 'hide', echo=FALSE}
 library("tidyr")
 library("dplyr")
@@ -37,76 +20,44 @@ library("ggplot2")
 library("readr")
 library("htmlwidgets")
 library("plotly")
-library("zoo")
 ```
-```{r warning=FALSE, error=FALSE, message=FALSE}
+```{r warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
 dados = read_csv(file = "series_from_imdb.csv")
 ```
-
-<br>
-
-# Panorama geral
-
-Para esta análise, usaremos os dados das seguintes séries, escolhidas por terem tamanhos diferentes (tamanho pode ser número de temporadas ou número de episódios por temporada) e por gosto pessoal:  
-
-  - Arrow
-  - Black Mirror
-  - Game of Thrones (GoT)
-  - Prison Break
-  - Vikings
-
-```{r pressure, results='hide'}
+```{r pressure, results='hide', echo=FALSE}
 dados = dados %>% 
   filter(series_name %in% c("Arrow",  "Dexter", "Game of Thrones", "Prison Break", "Vikings"))
 ```
-
-<br> 
-
-# Perguntas
-
-Primeiro vamos ver como as diferentes séries foram avaliadas ao longo de seus episódios. Para isso, vamos relacionar o episódio (series_ep), a partir do primeiro, à sua  avaliação geral (UserRating).
-
-```{r message=FALSE, warning=FALSE, error=FALSE}
-
-dados$categoria = ifelse(dados$UserRating >= 9, "otimo", 
-                  ifelse(dados$UserRating >= 8, "bom",       
-                  ifelse(dados$UserRating >= 7, "medio", "ruim")))
-
-plot_ly(data=dados, x=~series_ep, y=~UserRating,
-        color=~series_name, colors = c("darkblue", "aquamarine4", "darkgoldenrod1", "coral", "darkred"),
-        text = ~paste("Série: ", series_name, "\nAvaliação: ", UserRating, "\nCategoria: ", categoria, "\nNº votos: ", UserVotes)) %>%
-    
-add_trace(size=~log(UserVotes, base = 4), color=~series_name) %>%
-  
-    add_trace(x = ~series_ep,                                        
-            y = ~fitted((loess(UserRating ~ as.numeric(series_ep)))),  
-            mode = 'lines',                                    
-            line = list(                                  
-              dash = "dashed"                                  
-            )
-  ) %>%
-
-layout(title="Notas gerais de episódios ao longo da série", 
-       yaxis = list(title="Avaliação geral do episódio"),
-       xaxis = list(rangeslider = list(type = "numeric")))
-```
-
-```{r message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE, echo=FALSE}
 got = dados %>% filter(series_name == "Game of Thrones")
 dexter = dados %>% filter(series_name == "Dexter")
 arrow = dados %>% filter(series_name == "Arrow")
 pbreak = dados %>% filter(series_name == "Prison Break")
 vikings = dados %>% filter(series_name == "Vikings")
-
-plot_ly() %>%
-add_lines(data=got, x = ~series_ep, y = rollmean~UserRating, name = "Game Of Thrones", line = list(color = "deeppink")) %>%
-add_lines(data=dexter, x = ~series_ep, y = ~UserRating, name = "Dexter", line = list(color = "darkblue")) %>%
-add_lines(data=arrow, x = ~series_ep, y = ~UserRating, name = "Arrow", line = list(color = "grey")) %>%
-add_lines(data=pbreak, x = ~series_ep, y = ~UserRating, name = "Prison Break", line = list(color = "orange")) %>%
-add_lines(data=vikings, x = ~series_ep, y = ~UserRating, name = "Vikings", line = list(color = "green"))
-
 ```
 
+O gráfico a seguir utiliza dados de séries extraídos do [IMDB](http://www.imdb.com). Nele estão desenhados dados de um conjunto específico de séries (Arrow, Dexter, Game of Thrones, Prison Break, Vikings). Com o gráfico, é possível ver o comportamento específico de uma série (como os seus episódios foram avaliados ao longo da série), além de comparar entre séries.  *Qual série teria sido melhor avaliada no geral? A avaliação dos episódios variam muito?.* Esse gráfico pode ajudá-lo a explorar questões como essas.
 
-<br>
+No gráfico, *as linhas representam uma ponderação das avaliações de episódios* de uma série específica. Com o gráfico, por exemplo, **a gente vê que Game of Thrones é significativamente melhor avaliada do que as outras temporadas**.
+
+Você pode *passar o mouse sobre as linhas* e ver informações de um episódio específico. Você também pode *usar os filtros na barra lateral* para ir atualizando o gráfico. Se clicar nos pontos, serão desenhados todos os episódios de uma séries, em que *o diâmetro do ponto representa o número de avaliações que um episódios recebeu* (**você vai perceber também que os episódios de Game of Thrones foram os que mais receberam votos**).
+
+```{r message=FALSE, warning=FALSE, error=FALSE, echo=FALSE}
+plot_ly(data=dados, x=~series_ep, y=~UserRating,
+        color=~series_name, colors = c("darkblue", "aquamarine4", "darkgoldenrod1", "coral", "darkred"),
+        text = ~paste("Série: ", series_name, "\nEpisódio: ", series_ep, "\nAvaliação: ", UserRating, "\nNº votos: ", UserVotes)) %>%
+   
+add_trace(size=~sqrt(UserVotes), color=~series_name, visible="legendonly", jitter=1) %>%
+
+add_lines(data=arrow, x = ~series_ep, y=~fitted((loess(UserRating ~ as.numeric(series_ep))))) %>%
+add_lines(data=dexter, x = ~series_ep, y=~fitted((loess(UserRating ~ as.numeric(series_ep))))) %>%
+add_lines(data=got, x = ~series_ep, y=~fitted((loess(UserRating ~ as.numeric(series_ep))))) %>%
+add_lines(data=pbreak, x = ~series_ep, y=~fitted((loess(UserRating ~ as.numeric(series_ep))))) %>%
+add_lines(data=vikings, x = ~series_ep, y=~fitted((loess(UserRating ~ as.numeric(series_ep))))) %>%
+  
+layout(title="Notas gerais de episódios ao longo da série", 
+       yaxis = list(title="Avaliação geral do episódio"),
+       xaxis = list(title="Número do episódio na série", rangeslider = list(type = "numeric")))
+```
+
 <br>
