@@ -36,18 +36,23 @@ pbreak = dados %>% filter(series_name == "Prison Break")
 vikings = dados %>% filter(series_name == "Vikings")
 ```
 
+<br>
+
 O gráfico a seguir utiliza dados de séries extraídos do [IMDB](http://www.imdb.com). Nele estão desenhados dados de um conjunto específico de séries (Arrow, Dexter, Game of Thrones, Prison Break, Vikings). Com o gráfico, é possível ver o comportamento específico de uma série (como os seus episódios foram avaliados ao longo da série), além de comparar entre séries.  *Qual série teria sido melhor avaliada no geral? A avaliação dos episódios variam muito?.* Esse gráfico pode ajudá-lo a explorar questões como essas.
 
 No gráfico, *as linhas representam uma ponderação das avaliações de episódios* de uma série específica. Com o gráfico, por exemplo, **a gente vê que Game of Thrones é significativamente melhor avaliada do que as outras temporadas**.
 
 Você pode *passar o mouse sobre as linhas* e ver informações de um episódio específico. Você também pode *usar os filtros na barra lateral* para ir atualizando o gráfico. Se clicar nos pontos, serão desenhados todos os episódios de uma séries, em que *o diâmetro do ponto representa o número de avaliações que um episódios recebeu* (**você vai perceber também que os episódios de Game of Thrones foram os que mais receberam votos**).
 
+<br>
+
 ```{r message=FALSE, warning=FALSE, error=FALSE, echo=FALSE}
+
 plot_ly(data=dados, x=~series_ep, y=~UserRating,
         color=~series_name, colors = c("darkblue", "aquamarine4", "darkgoldenrod1", "coral", "darkred"),
-        text = ~paste("Série: ", series_name, "\nEpisódio: ", series_ep, "\nAvaliação: ", UserRating, "\nNº votos: ", UserVotes)) %>%
+        text = ~paste("\nSérie: ", series_name, "\nEpisódio: ", series_ep, "\nAvaliação: ", UserRating, "\nNº votos: ", UserVotes)) %>%
    
-add_trace(size=~sqrt(UserVotes), color=~series_name, visible="legendonly", jitter=1) %>%
+add_trace(size=~log(UserVotes/sqrt(UserVotes)), color=~series_name, alpha=0.9, visible="legendonly") %>%
 
 add_lines(data=arrow, x = ~series_ep, y=~fitted((loess(UserRating ~ as.numeric(series_ep))))) %>%
 add_lines(data=dexter, x = ~series_ep, y=~fitted((loess(UserRating ~ as.numeric(series_ep))))) %>%
@@ -61,3 +66,10 @@ layout(title="Notas gerais de episódios ao longo da série",
 ```
 
 <br>
+
+Neste gráfico, você pode brincar um pouco com as variáveis:
+
+- Nome da série
+- Avaliação geral de um episódio
+- Número do episódio na série (e não em uma temporada)
+- Número de votos que um episódios recebeu
