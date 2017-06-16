@@ -1,0 +1,26 @@
+---
+title: "teste"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r cars}
+library("tidyr")
+library("dplyr")
+library("ggplot2")
+library("readr")
+library("rvest")
+library("plotly")
+library("cluster")
+library("ggdendro")
+theme_set(theme_light())
+source("plota_solucoes_hclust.R")
+```
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
