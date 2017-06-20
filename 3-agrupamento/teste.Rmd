@@ -204,11 +204,15 @@ A2Rplot(agrupamento_h_2d, k = 3, boxes = FALSE, col.up = "gray50",
 
 
 
+
 Roteiro:
 - explorar / descrever
 - analisar bilheteria e rating
 - combinações: transformações das variáveis, escolha de grupos e algoritmos de linkage
 - para cada grupo na combinação final que você escolheu: (1) qual o nome do grupo e porque, e (2) exemplos de filmes que você conhece nesse grupo que se encaixam na descrição/nome que você deu ao grupo.
+
+É importante padronizar as var para n haver maior influências no cálc da dista do algo.
+
 
 Créditos:
 https://rpubs.com/gaston/dendrograms
