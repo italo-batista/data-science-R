@@ -3,24 +3,213 @@ title: "teste"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 ```{r cars}
-library("tidyr")
-library("dplyr")
-library("ggplot2")
-library("readr")
-library("rvest")
-library("plotly")
-library("cluster")
-library("ggdendro")
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(tidyverse, warn.conflicts = F)
+library(rvest)
+library(plotly)
+library(cluster)
+library(ggdendro)
 theme_set(theme_light())
 source("plota_solucoes_hclust.R")
 ```
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+from_page <- read_html("https://www.rottentomatoes.com/celebrity/cate_blanchett") %>% 
+    html_node("#filmographyTbl") %>% # A sintaxe da expressão é de um seletor à lá JQuery: https://rdrr.io/cran/rvest/man/html_nodes.html 
+    html_table(fill=TRUE) %>% # Faz parse
+    as.tibble()
+
+filmes = from_page %>% 
+    filter(RATING != "No Score Yet", 
+           `BOX OFFICE` != "—", 
+           CREDIT != "Executive Producer") %>%
+    mutate(RATING = as.numeric(gsub("%", "", RATING)), 
+           `BOX OFFICE` = as.numeric(gsub("[$|M]", "", `BOX OFFICE`))) %>% 
+    filter(`BOX OFFICE` >= 1) # Tem dois filmes que não parecem ter sido lançados no mundo todo
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Explorando
+
+### RATING
+
+```{r}
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = RATING)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6)
+```
+
+Os pontos estão bem dispersos, sem constituir aglomerações.
+Com log:
+```{r}
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = RATING)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) +
+  scale_y_log10()
+```
+
+
+### BOX OFFICE
+```{r}
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) 
+```
+
+Aqui já está mais claro que há grupos.
+
+Agora com log:
+```{r}
+filmes %>% 
+    ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) + 
+    scale_y_log10()  
+```
+
+### AS DUAS VARIÁVEIS JUNTAS
+
+```{r}
+filmes %>% 
+    ggplot(aes(x = RATING, y = `BOX OFFICE`, label = TITLE)) + 
+    geom_point() + scale_y_log10()
+```
+
+
+### AGRUPAMENTOS
+
+```{r warning=FALSE}
+agrupamento_h_2d = filmes %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "centroid")
+
+ggdendrogram(agrupamento_h_2d, rotate = TRUE)
+```
+
+```{r}
+data.frame(k = NROW(agrupamento_h_2d$height):1, 
+           height = agrupamento_h_2d$height) %>% 
+    ggplot(aes(x = k, y = height)) + 
+    geom_line(colour = "grey") + 
+    geom_point() + 
+    labs(x = "Número de clusters produzido", y = "Dissimilaridade na junção")
+```
+
+### VISUALIZANDO..
+
+```{r}
+agrupamento_h_2d_dendograma = as.dendrogram(agrupamento_h_2d)
+```
+```{r}
+## TRIANGULO
+plot(agrupamento_h_2d_dendograma, type = "triangle")
+```
+
+Customizando dendograma:
+
+```{r}
+labelColors = c("#CDB380", "#036564", "#EB6841", "#EDC951")
+
+clusMember = cutree(agrupamento_h_2d, 4)
+
+# function to get 
+colLab <- function(n) {
+    if (is.leaf(n)) {
+        a <- attributes(n)
+        labCol <- labelColors[clusMember[which(names(clusMember) == a$label)]]
+        attr(n, "nodePar") <- c(a$nodePar, lab.col = labCol)
+    }
+    n
+}
+
+clusDendro = dendrapply(agrupamento_h_2d_dendograma, colLab)
+
+plot(clusDendro, main = "Cool Dendrogram", type = "triangle")
+```
+
+As Phylogenetic trees:
+
+```{r}
+# load package ape; remember to install it: install.packages('ape')
+library(ape)
+plot(as.phylo(agrupamento_h_2d), cex = 0.9, label.offset = 1)
+```
+
+```{r}
+# CLADOGRAM
+plot(as.phylo(agrupamento_h_2d), type = "cladogram", cex = 0.9, label.offset = 1)
+```
+
+```{r}
+# UNROOTED
+plot(as.phylo(agrupamento_h_2d), type = "unrooted")
+```
+
+```{r}
+# FAN
+plot(as.phylo(agrupamento_h_2d), type = "fan")
+```
+
+```{r}
+# RADIAL
+plot(as.phylo(agrupamento_h_2d), type = "radial")
+```
+
+Customizando...
+```{r}
+# add colors randomly
+plot(as.phylo(agrupamento_h_2d), type = "fan", 
+     tip.color = hsv(runif(15, 0.65, 0.95), 1, 1, 0.7), 
+     edge.color = hsv(runif(10, 0.65, 0.75), 1, 1, 0.7), 
+     edge.width = runif(20, 0.5, 3), 
+     use.edge.length = TRUE, col = "gray80")
+```
+
+```{r warning=FALSE}
+# colors
+mypal = c("#556270", "#4ECDC4", "#1B676B", "#FF6B6B", "#C44D58")
+
+# cutting dendrogram in 5 clusters
+clus5 = cutree(agrupamento_h_2d, 5)
+
+op = par(bg = "#E8DDCB")
+
+# Size reflects miles per gallon
+plot(as.phylo(agrupamento_h_2d), type = "fan", tip.color = mypal[clus5], label.offset = 1, 
+    cex = log(mtcars$mpg, 10), col = "red")
+```
+
+With ggdendogram
+```{r}
+ggdendrogram(agrupamento_h_2d, rotate = TRUE, size = 4, theme_dendro = FALSE, color = "tomato")
+```
+
+```{r}
+source("http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R") # load code of A2R function
+
+op = par(bg = "#EFEFEF")
+A2Rplot(agrupamento_h_2d, k = 3, boxes = FALSE, col.up = "gray50", 
+        col.down = c("#FF6B6B", "#4ECDC4", "#556270"))
+```
+
+
+
+Roteiro:
+- explorar / descrever
+- analisar bilheteria e rating
+- combinações: transformações das variáveis, escolha de grupos e algoritmos de linkage
+- para cada grupo na combinação final que você escolheu: (1) qual o nome do grupo e porque, e (2) exemplos de filmes que você conhece nesse grupo que se encaixam na descrição/nome que você deu ao grupo.
+
+Créditos:
+https://rpubs.com/gaston/dendrograms
+Naza
