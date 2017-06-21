@@ -20,9 +20,9 @@ theme_set(theme_light())
 source("plota_solucoes_hclust.R")
 ```
 
-Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo identificar agrupamentos sob características de Bilheteria e Avaliação dos filmes nos quais a atriz Cate Blanchett atuou. Iremos utilizar para trabalharmos com algumas técnicas de **agrupamento**.
+Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo identificar agrupamentos sob características de Bilheteria e Avaliação dos filmes nos quais a atriz Cate Blanchett atuou. Essa análise serve de mote para trabalharmos com algumas técnicas de **agrupamento hierárquico**.
 
-Iremos coletar daods sobre a atriz do site Rotten Tomatoes.
+Os dados sobre a atriz que iremos coletar são do site Rotten Tomatoes.
 
 ```{r warning=FALSE, message=FALSE, error=FALSE}
 from_page <- read_html("https://www.rottentomatoes.com/celebrity/cate_blanchett") %>% 
@@ -62,7 +62,7 @@ filmes %>%
   ggplot(aes(x = "Filmes", y = RATING)) + 
   geom_jitter(width = .02, height = 0, size = 2, alpha = .6, color="#EB6841") +
   theme(plot.title = element_text(hjust = 0.5)) +
-  labs(title="Gráfico 01 - Comportamento da var Rating", x= element_blank())
+  labs(title="Gráfico 01 - Comportamento da var Rating (Avaliação)", x= element_blank())
 ```
 
 Visualmente, há vários pequenos grupos (filmes que possuem rating próximos). 
@@ -85,32 +85,36 @@ Aqui, os dados estão mais dispersos, com alguns grupos mais definidos.
 
 Agora, vamos utilizar algumas técnicas de agrupamento hierárquico de duas dimensões para identificar grupos de filmes definidos sob as características Rating e Box Office.
 
-Primeiro, vamos entender como os dados se comportam segundo essas duas variáveis juntas!
+Primeiro, vamos entender se comportam segundo essas duas variáveis juntas!
 
 ```{r}
 filmes %>% 
   ggplot(aes(x = RATING, y = `BOX OFFICE`, label = TITLE)) + 
-  geom_point(color="#EDC951") + 
+  geom_point(color="#EDC951", size=4, alpha=0.8) + 
   theme(plot.title = element_text(hjust = 0.5)) +
   labs(title="Gráfico 03 - Comportamento das vars Box Office e Rating juntas", 
        x="Avaliação do filme", y="Bilheteria do filme")
 ```
 
-Como vemos, os dados de bilheteria variam bastante, deixando os pontos dispersos. Nesse sentido, vamos aplicar a função log aos dados de bilheteria, de modo que essa alta variação em bilheteria tenha pouca influência quando formos identificar grupos de filmes.
+Como vemos, os dados de bilheteria variam bastante (eixo vertical), deixando os pontos dispersos. Nesse sentido, vamos aplicar a função log aos dados de bilheteria, de modo que essa alta variação em bilheteria tenha pouca influência quando formos identificar grupos de filmes.
 
 ```{r}
 filmes %>% 
   ggplot(aes(x=RATING, y=`BOX OFFICE`, label = TITLE)) + 
-  geom_point(color="purple") + 
+  geom_point(color="purple", size=4, alpha=0.8) + 
   scale_y_log10() +
   theme(plot.title = element_text(hjust = 0.5)) +
   labs(title="Gráfico 03 - Comportamento das vars Box Office e Rating juntas", 
        x="Avaliação do filme", y="Bilheteria do filme")
 ```
-
-Normalizando os dados:
+```{r}
+filmes_scales = filmes %>% mutate(`BOX OFFICE` = log10(`BOX OFFICE`))
+filmes_scale = filmes
+filmes_scale$`BOX OFFICE` = log10(filmes$`BOX OFFICE`)
+```
 
 ```{r echo=FALSE}
+# Normalizando os dados:
 # box_office = filmes %>% 
 #   select(`BOX OFFICE`) %>%
 #   mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>%
@@ -124,9 +128,6 @@ Normalizando os dados:
 # filmes_scale[,4] = box_office
 # filmes_scale[,5] = rating
 ```
-```{r}
-filmes_scale = filmes %>% mutate(`BOX OFFICE` = log10(`BOX OFFICE`))
-```
 
 Calculando os grupos:
 
@@ -138,9 +139,7 @@ agrupamento_h_2d_complete = filmes_scale %>%
 ```
 
 
-Note que estamos utilizando log de Box Office. Note também que estamos utilizando o método euclidiano na função dist(). Esta 
-função calcula distância e retorna uma matriz de distâncias. O argumento do método especifica a métrica de distância a ser usada. Outro método que poderia ser utilizado é o "manhattan". No trecho de código acima, logo após calcular a distância, nós
-fazemos um aglomerativo agrupamento hierárquico (note a função hclust()). Para isso, estamos utilizando o método "complete". Outros métodos que poderiam ser utilizados são "ward.D2", "average", "centroid", "single", dentre outros. A escolha do método define a escolha do critério de vinculação.
+Note que estamos utilizando log de Box Office. Note também que estamos utilizando o método euclidiano na função dist(). Esta função calcula distâncias e retorna uma matriz de distâncias. O argumento do método especifica a métrica de distância a ser usada. Outro método que poderia ser utilizado é o "manhattan", mas usualmente se usa o euclidiano. Ainda no trecho de código acima, logo após calcular a distância, nós fazemos um agrupamento hierárquico (note a função hclust()). Para isso, estamos utilizando o método "complete". Outros métodos que poderiam ser utilizados são "ward.D2", "average", "centroid", "single", dentre outros. A escolha do método define o critério de vinculação.
 
 Vamos plotar o dendograma sobre esses dados agrupados:
 
@@ -153,8 +152,9 @@ ggdendrogram(agrupamento_h_2d_complete, rotate = TRUE) +
 Para vias de comparação, vamos plotar dendogramas utilizando outros métodos de vinculação (average e single).
 
 ```{r warning=FALSE}
-agrupamento_h_2d_average = filmes_scale %>% 
+agrupamento_h_2d_average = filmes_scale %>%
     column_to_rownames("TITLE") %>%
+      select(RATING, `BOX OFFICE`) %>% 
     dist(method = "euclidean") %>% 
     hclust(method = "average")
 
@@ -174,7 +174,7 @@ ggdendrogram(agrupamento_h_2d_single, rotate = TRUE) +
     labs(title="Gráfico 06 - Agrupamento (single)")
 ```
 
-Ao longo desta análise, vamos utilizar o agrupamento pelo método average, pois nele a distância entre dois grupos é definida como a média entre cada ponto de um cluste para cada ponto do outor. No método complete, a distância entre dois grupos é definida como a maior distância entre dois pontos de grupos diferentes. E, no método single, como a menor distância.
+Ao longo desta análise, vamos utilizar o agrupamento pelo método average, pois nele a distância entre dois grupos é definida como a média entre cada ponto de um cluster para cada ponto do outor. No método complete, a distância entre dois grupos é definida como a maior distância entre dois pontos de grupos diferentes. E, no método single, como a menor distância.
 
 ```{r}
 agrupamento_h_2d = agrupamento_h_2d_average
@@ -197,9 +197,26 @@ Contudo, para termos mais informações, vamos trabalhar com até 6 grupos nesta
 
 ```{r warning=FALSE, error=FALSE}
 plota_hclusts_2d(agrupamento_h_2d, 
-                 filmes_scale , 
+                 filmes_scale, 
                  c("RATING", "`BOX OFFICE`"), 
                  linkage_method = "average", ks = 1:6)
+```
+
+Percebemos que quando há cinco ou mais grupos, alguns pontos de um grupo acabam se afastando de seu grupo e ficando mais próximo de outro grupo. Vamos plotar um gráfico silhueta para identificar a qualidade do agrupamento.
+
+```{r warning=FALSE}
+distancias = filmes_scale %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>% 
+    #mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
+    #mutate_all(funs(scale)) %>% 
+    dist(method = "euclidean")
+
+plot(
+  silhouette(cutree(agrupamento_h_2d, k = 6), distancias), 
+  col=c("#CDB380", "#036564", "#EB6841", "#EDC951", "darkred", "pink"),
+  main="Gráfico 09 - Diagnóstico do agrupamento",
+  yaxt='n', ann=FALSE)
 ```
 
 TODO: - para cada grupo na combinação final que você escolheu: (1) qual o nome do grupo e porque, e (2) exemplos de filmes que você conhece nesse grupo que se encaixam na descrição/nome que você deu ao grupo.
@@ -228,20 +245,20 @@ E agora com seis grupos?
 plot(agrupamento_scale %>% select(RATING, `BOX OFFICE`), col=cutree(agrupamento_scale_h_2d, k=6))
 ```
 
-
-Falar sobre a qualidade do agrupamento.
-
 ```{r warning=FALSE}
-distancias = filmes %>% 
+distancias_scale = agrupamento_scale %>% 
     column_to_rownames("TITLE") %>%
     select(RATING, `BOX OFFICE`) %>% 
-    mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
-    mutate_all(funs(scale)) %>% 
+    #mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
+    #mutate_all(funs(scale)) %>% 
     dist(method = "euclidean")
 
-plot(silhouette(cutree(agrupamento_h_2d, k = 4), distancias), col=c("#CDB380", "#036564", "#EB6841", "#EDC951"))
+plot(
+  silhouette(cutree(agrupamento_h_2d, k = 6), distancias_scale), 
+  col=c("#CDB380", "#036564", "#EB6841", "#EDC951", "darkred", "pink"),
+  main="Gráfico 09 - Diagnóstico do agrupamento",
+  yaxt='n', ann=FALSE)
 ```
-
 
 
 ### VISUALIZANDO..
