@@ -3,10 +3,10 @@ title: "teste"
 output: html_document
 ---
 
-```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-```{r cars}
+```{r warning=FALSE, error=FALSE, message=FALSE}
 library(tidyr)
 library(dplyr)
 library(ggplot2)
@@ -20,7 +20,9 @@ theme_set(theme_light())
 source("plota_solucoes_hclust.R")
 ```
 
+Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo identificar agrupamentos sob características de Bilheteria e Avaliação dos filmes nos quais a atriz Cate Blanchett atuou. Iremos utilizar para trabalharmos com algumas técnicas de **agrupamento**.
 
+Iremos coletar daods sobre a atriz do site Rotten Tomatoes.
 
 ```{r warning=FALSE, message=FALSE, error=FALSE}
 from_page <- read_html("https://www.rottentomatoes.com/celebrity/cate_blanchett") %>% 
@@ -37,64 +39,148 @@ filmes = from_page %>%
     filter(`BOX OFFICE` >= 1) # Tem dois filmes que não parecem ter sido lançados no mundo todo
 ```
 
+## Explorando
+
+Vamos inicialmente entender a estrutura dos dados:
+
+```{r}
+filmes %>% head()
+```
+
+Cada observação é um filme, que possui uma avaliação (entre 0 e 100), o título do filme, o nome do papel que Cate Blanchett atuou, a bilheteria do filme e o ano de lançamento.
+
+Nesta análise, estaremos interessados em identificar grupos entre esses filmes sob as variáveis *rating* e *box office* (grupos de duas dimensões). Nesses sentido, vamos ver como essas variáveis se comportam.
 
 ## Explorando
 
-### RATING
+### Rating
+
+Vamos visualizar os dados para Rating. 
 
 ```{r}
 filmes %>% 
-    ggplot(aes(x = "Filmes", y = RATING)) + 
-    geom_jitter(width = .02, height = 0, size = 2, alpha = .6)
+  ggplot(aes(x = "Filmes", y = RATING)) + 
+  geom_jitter(width = .02, height = 0, size = 2, alpha = .6, color="#EB6841") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(title="Gráfico 01 - Comportamento da var Rating", x= element_blank())
 ```
 
-Os pontos estão bem dispersos, sem constituir aglomerações.
-Com log:
-```{r}
-filmes %>% 
-    ggplot(aes(x = "Filmes", y = RATING)) + 
-    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) +
-  scale_y_log10()
-```
+Visualmente, há vários pequenos grupos (filmes que possuem rating próximos). 
 
+### Box Office
 
-### BOX OFFICE
-```{r}
-filmes %>% 
-    ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
-    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) 
-```
-
-Aqui já está mais claro que há grupos.
-
-Agora com log:
-```{r}
-filmes %>% 
-    ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
-    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) + 
-    scale_y_log10()  
-```
-
-### AS DUAS VARIÁVEIS JUNTAS
+Repetindo o processo para a variávei Box Office (tr: Bilheteria).
 
 ```{r}
 filmes %>% 
-    ggplot(aes(x = RATING, y = `BOX OFFICE`, label = TITLE)) + 
-    geom_point() + scale_y_log10()
+  ggplot(aes(x = "Filmes", y = `BOX OFFICE`)) + 
+  geom_jitter(width = .02, height = 0, size = 2, alpha = .6, color="#036564") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(title="Gráfico 02 - Comportamento da var Box Office (bliheteria)", x= element_blank())
 ```
 
+Aqui, os dados estão mais dispersos, com alguns grupos mais definidos.
 
-### AGRUPAMENTOS
+## Agrupamento Hierárquico de duas dimensões
+
+Agora, vamos utilizar algumas técnicas de agrupamento hierárquico de duas dimensões para identificar grupos de filmes definidos sob as características Rating e Box Office.
+
+Primeiro, vamos entender como os dados se comportam segundo essas duas variáveis juntas!
+
+```{r}
+filmes %>% 
+  ggplot(aes(x = RATING, y = `BOX OFFICE`, label = TITLE)) + 
+  geom_point(color="#EDC951") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(title="Gráfico 03 - Comportamento das vars Box Office e Rating juntas", 
+       x="Avaliação do filme", y="Bilheteria do filme")
+```
+
+Como vemos, os dados de bilheteria variam bastante, deixando os pontos dispersos. Nesse sentido, vamos aplicar a função log aos dados de bilheteria, de modo que essa alta variação em bilheteria tenha pouca influência quando formos identificar grupos de filmes.
+
+```{r}
+filmes %>% 
+  ggplot(aes(x=RATING, y=`BOX OFFICE`, label = TITLE)) + 
+  geom_point(color="purple") + 
+  scale_y_log10() +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(title="Gráfico 03 - Comportamento das vars Box Office e Rating juntas", 
+       x="Avaliação do filme", y="Bilheteria do filme")
+```
+
+Normalizando os dados:
+
+```{r echo=FALSE}
+# box_office = filmes %>% 
+#   select(`BOX OFFICE`) %>%
+#   mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>%
+#   mutate_all(funs(scale))
+# 
+# rating = filmes %>%
+#     select(RATING) %>%
+#     mutate_all(funs(scale))
+# 
+# filmes_scale = filmes %>% select(-(RATING), -(`BOX OFFICE`))
+# filmes_scale[,4] = box_office
+# filmes_scale[,5] = rating
+```
+```{r}
+filmes_scale = filmes %>% mutate(`BOX OFFICE` = log10(`BOX OFFICE`))
+```
+
+Calculando os grupos:
 
 ```{r warning=FALSE}
-agrupamento_h_2d = filmes %>% 
+agrupamento_h_2d_complete = filmes_scale %>% 
     column_to_rownames("TITLE") %>%
-    select(RATING, `BOX OFFICE`) %>%
     dist(method = "euclidean") %>% 
-    hclust(method = "centroid")
-
-ggdendrogram(agrupamento_h_2d, rotate = TRUE)
+    hclust(method = "complete")
 ```
+
+
+Note que estamos utilizando log de Box Office. Note também que estamos utilizando o método euclidiano na função dist(). Esta 
+função calcula distância e retorna uma matriz de distâncias. O argumento do método especifica a métrica de distância a ser usada. Outro método que poderia ser utilizado é o "manhattan". No trecho de código acima, logo após calcular a distância, nós
+fazemos um aglomerativo agrupamento hierárquico (note a função hclust()). Para isso, estamos utilizando o método "complete". Outros métodos que poderiam ser utilizados são "ward.D2", "average", "centroid", "single", dentre outros. A escolha do método define a escolha do critério de vinculação.
+
+Vamos plotar o dendograma sobre esses dados agrupados:
+
+```{r}
+ggdendrogram(agrupamento_h_2d_complete, rotate = TRUE) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  labs(title="Gráfico 04 - Agrupamento (complete)")
+```
+
+Para vias de comparação, vamos plotar dendogramas utilizando outros métodos de vinculação (average e single).
+
+```{r warning=FALSE}
+agrupamento_h_2d_average = filmes_scale %>% 
+    column_to_rownames("TITLE") %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "average")
+
+ggdendrogram(agrupamento_h_2d_average, rotate = TRUE) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(title="Gráfico 05 - Agrupamento (average)")
+```
+
+```{r warning=FALSE}
+agrupamento_h_2d_single = filmes_scale %>% 
+    column_to_rownames("TITLE") %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "single")
+
+ggdendrogram(agrupamento_h_2d_single, rotate = TRUE) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(title="Gráfico 06 - Agrupamento (single)")
+```
+
+Ao longo desta análise, vamos utilizar o agrupamento pelo método average, pois nele a distância entre dois grupos é definida como a média entre cada ponto de um cluste para cada ponto do outor. No método complete, a distância entre dois grupos é definida como a maior distância entre dois pontos de grupos diferentes. E, no método single, como a menor distância.
+
+```{r}
+agrupamento_h_2d = agrupamento_h_2d_average
+```
+
+No gráfico abaixo, analisamos a dissimilaridade dos agrupamentos em função do número de grupos que se deseja ter. Vemos que há uma grade (a maior) diferença entre os pontos 1 e 2, como esperado, pois se todos os dados formam um só grupo, esse grupo tende a ser bem dissimilar. A diferença entre ter 2 ou 3 grupos também é bastante significativa, mas, a partir desse ponto, a dissimilaridade passa a variar menos. Nesse sentido, se quiséssemos formar a partir 4 grupos de filmes, cada grupo tenderia a ser mais homogênio entre si.
 
 ```{r}
 data.frame(k = NROW(agrupamento_h_2d$height):1, 
@@ -102,17 +188,66 @@ data.frame(k = NROW(agrupamento_h_2d$height):1,
     ggplot(aes(x = k, y = height)) + 
     geom_line(colour = "grey") + 
     geom_point() + 
-    labs(x = "Número de clusters produzido", y = "Dissimilaridade na junção")
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(x = "Número de clusters produzido", y = "Dissimilaridade na junção",
+         title="Gráfico 07 - Dissimilaridade em função de número de grupos")
 ```
+
+Contudo, para termos mais informações, vamos trabalhar com até 6 grupos nesta análise.
+
+```{r warning=FALSE, error=FALSE}
+plota_hclusts_2d(agrupamento_h_2d, 
+                 filmes_scale , 
+                 c("RATING", "`BOX OFFICE`"), 
+                 linkage_method = "average", ks = 1:6)
+```
+
+TODO: - para cada grupo na combinação final que você escolheu: (1) qual o nome do grupo e porque, e (2) exemplos de filmes que você conhece nesse grupo que se encaixam na descrição/nome que você deu ao grupo.
+
+Proximo: Se normalizarmos os dados.. Comparar com o grafico anterior.
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+agrupamento_scale = filmes
+agrupamento_scale$RATING = scale(filmes$RATING)
+agrupamento_scale$`BOX OFFICE` = scale(filmes$`BOX OFFICE`)
+
+agrupamento_scale_h_2d = agrupamento_scale %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "average")
+
+cluster_complete <- cutree(agrupamento_scale_h_2d, k=4)
+
+plot(agrupamento_scale %>% select(RATING, `BOX OFFICE`), col=cluster_complete)
+```
+
+E agora com seis grupos?
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+plot(agrupamento_scale %>% select(RATING, `BOX OFFICE`), col=cutree(agrupamento_scale_h_2d, k=6))
+```
+
+
+Falar sobre a qualidade do agrupamento.
+
+```{r warning=FALSE}
+distancias = filmes %>% 
+    column_to_rownames("TITLE") %>%
+    select(RATING, `BOX OFFICE`) %>% 
+    mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
+    mutate_all(funs(scale)) %>% 
+    dist(method = "euclidean")
+
+plot(silhouette(cutree(agrupamento_h_2d, k = 4), distancias), col=c("#CDB380", "#036564", "#EB6841", "#EDC951"))
+```
+
+
 
 ### VISUALIZANDO..
 
 ```{r}
 agrupamento_h_2d_dendograma = as.dendrogram(agrupamento_h_2d)
-```
-```{r}
-## TRIANGULO
-plot(agrupamento_h_2d_dendograma, type = "triangle")
 ```
 
 Customizando dendograma:
@@ -137,83 +272,8 @@ clusDendro = dendrapply(agrupamento_h_2d_dendograma, colLab)
 plot(clusDendro, main = "Cool Dendrogram", type = "triangle")
 ```
 
-As Phylogenetic trees:
-
-```{r}
-# load package ape; remember to install it: install.packages('ape')
-library(ape)
-plot(as.phylo(agrupamento_h_2d), cex = 0.9, label.offset = 1)
-```
-
-```{r}
-# CLADOGRAM
-plot(as.phylo(agrupamento_h_2d), type = "cladogram", cex = 0.9, label.offset = 1)
-```
-
-```{r}
-# UNROOTED
-plot(as.phylo(agrupamento_h_2d), type = "unrooted")
-```
-
-```{r}
-# FAN
-plot(as.phylo(agrupamento_h_2d), type = "fan")
-```
-
-```{r}
-# RADIAL
-plot(as.phylo(agrupamento_h_2d), type = "radial")
-```
-
-Customizando...
-```{r}
-# add colors randomly
-plot(as.phylo(agrupamento_h_2d), type = "fan", 
-     tip.color = hsv(runif(15, 0.65, 0.95), 1, 1, 0.7), 
-     edge.color = hsv(runif(10, 0.65, 0.75), 1, 1, 0.7), 
-     edge.width = runif(20, 0.5, 3), 
-     use.edge.length = TRUE, col = "gray80")
-```
-
-```{r warning=FALSE}
-# colors
-mypal = c("#556270", "#4ECDC4", "#1B676B", "#FF6B6B", "#C44D58")
-
-# cutting dendrogram in 5 clusters
-clus5 = cutree(agrupamento_h_2d, 5)
-
-op = par(bg = "#E8DDCB")
-
-# Size reflects miles per gallon
-plot(as.phylo(agrupamento_h_2d), type = "fan", tip.color = mypal[clus5], label.offset = 1, 
-    cex = log(mtcars$mpg, 10), col = "red")
-```
-
-With ggdendogram
-```{r}
-ggdendrogram(agrupamento_h_2d, rotate = TRUE, size = 4, theme_dendro = FALSE, color = "tomato")
-```
-
-```{r}
-source("http://addictedtor.free.fr/packages/A2R/lastVersion/R/code.R") # load code of A2R function
-
-op = par(bg = "#EFEFEF")
-A2Rplot(agrupamento_h_2d, k = 3, boxes = FALSE, col.up = "gray50", 
-        col.down = c("#FF6B6B", "#4ECDC4", "#556270"))
-```
-
-
-
-
-Roteiro:
-- explorar / descrever
-- analisar bilheteria e rating
-- combinações: transformações das variáveis, escolha de grupos e algoritmos de linkage
-- para cada grupo na combinação final que você escolheu: (1) qual o nome do grupo e porque, e (2) exemplos de filmes que você conhece nesse grupo que se encaixam na descrição/nome que você deu ao grupo.
-
-É importante padronizar as var para n haver maior influências no cálc da dista do algo.
-
-
 Créditos:
 https://rpubs.com/gaston/dendrograms
 Naza
+https://rpubs.com/mrkm_a/ClusteringWithR 
+http://www.saedsayad.com/clustering_hierarchical.htm
