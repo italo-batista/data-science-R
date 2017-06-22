@@ -95,4 +95,21 @@ A2Rplot(agrupamento_h_2d, k = 4, boxes = FALSE, col.up = "gray50",
 
 ggdendrogram(agrupamento_h_2d, rotate = TRUE, size = 4, theme_dendro = FALSE, color = "tomato")
 
-###
+### VISUALIZANDO..
+
+
+agrupamento_h_2d_dendograma = as.dendrogram(agrupamento_h_2d)
+labelColors = c("#CDB380", "#036564", "#EB6841", "#EDC951")
+clusMember = cutree(agrupamento_h_2d, 4)
+
+colLab <- function(n) {
+  if (is.leaf(n)) {
+    a <- attributes(n)
+    labCol <- labelColors[clusMember[which(names(clusMember) == a$label)]]
+    attr(n, "nodePar") <- c(a$nodePar, lab.col = labCol)
+  }
+  n
+}
+
+clusDendro = dendrapply(agrupamento_h_2d_dendograma, colLab)
+plot(clusDendro, main = "Cool Dendrogram", type = "triangle")

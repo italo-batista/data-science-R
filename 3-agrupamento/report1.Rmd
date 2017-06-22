@@ -1,6 +1,13 @@
 ---
-title: "teste"
-output: html_document
+title: "Filmes de Cate Blanchett - Técnicas de Agrupamento"
+output:
+  html_document:
+    fig_width: 6
+    fig_height: 4
+    theme: journal
+theme: united
+highlight: tango
+css: styles.css
 ---
 
 ```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
@@ -26,7 +33,7 @@ Os dados sobre a atriz que iremos coletar são do site Rotten Tomatoes.
 
 ```{r warning=FALSE, message=FALSE, error=FALSE}
 from_page <- read_html("https://www.rottentomatoes.com/celebrity/cate_blanchett") %>% 
-    html_node("#filmographyTbl") %>% # A sintaxe da expressão é de um seletor à lá JQuery: https://rdrr.io/cran/rvest/man/html_nodes.html 
+    html_node("#filmographyTbl") %>%
     html_table(fill=TRUE) %>% # Faz parse
     as.tibble()
 
@@ -39,7 +46,7 @@ filmes = from_page %>%
     filter(`BOX OFFICE` >= 1) # Tem dois filmes que não parecem ter sido lançados no mundo todo
 ```
 
-## Explorando
+## Conhecendo os dados
 
 Vamos inicialmente entender a estrutura dos dados:
 
@@ -49,9 +56,9 @@ filmes %>% head()
 
 Cada observação é um filme, que possui uma avaliação (entre 0 e 100), o título do filme, o nome do papel que Cate Blanchett atuou, a bilheteria do filme e o ano de lançamento.
 
-Nesta análise, estaremos interessados em identificar grupos entre esses filmes sob as variáveis *rating* e *box office* (grupos de duas dimensões). Nesses sentido, vamos ver como essas variáveis se comportam.
+Nesta análise, estaremos interessados em identificar grupos entre esses filmes sob as variáveis *rating* e *box office* (grupos de duas dimensões). Nesse sentido, vamos ver como essas variáveis se comportam.
 
-## Explorando
+## Explorando os dados
 
 ### Rating
 
@@ -65,7 +72,7 @@ filmes %>%
   labs(title="Gráfico 01 - Comportamento da var Rating (Avaliação)", x= element_blank())
 ```
 
-Visualmente, há vários pequenos grupos (filmes que possuem rating próximos). 
+Visualmente, os filmes estão bem dispersos rem relação à sua avaliação, porém com alguns pequenos grupos (filmes que possuem rating próximos). 
 
 ### Box Office
 
@@ -79,13 +86,13 @@ filmes %>%
   labs(title="Gráfico 02 - Comportamento da var Box Office (bliheteria)", x= element_blank())
 ```
 
-Aqui, os dados estão mais dispersos, com alguns grupos mais definidos.
+Aqui, os dados estão um pouco menos dispersos, com alguns grupos mais definidos.
 
 ## Agrupamento Hierárquico de duas dimensões
 
 Agora, vamos utilizar algumas técnicas de agrupamento hierárquico de duas dimensões para identificar grupos de filmes definidos sob as características Rating e Box Office.
 
-Primeiro, vamos entender se comportam segundo essas duas variáveis juntas!
+Primeiro, vamos entender como se comportam segundo essas duas variáveis juntas!
 
 ```{r}
 filmes %>% 
@@ -104,13 +111,11 @@ filmes %>%
   geom_point(color="purple", size=4, alpha=0.8) + 
   scale_y_log10() +
   theme(plot.title = element_text(hjust = 0.5)) +
-  labs(title="Gráfico 03 - Comportamento das vars Box Office e Rating juntas", 
+  labs(title="Gráfico 04 - Comportamento das vars Box Office e Rating juntas", 
        x="Avaliação do filme", y="Bilheteria do filme")
 ```
 ```{r}
-filmes_scales = filmes %>% mutate(`BOX OFFICE` = log10(`BOX OFFICE`))
-filmes_scale = filmes
-filmes_scale$`BOX OFFICE` = log10(filmes$`BOX OFFICE`)
+filmes_scale = filmes %>% mutate(`BOX OFFICE` = log10(`BOX OFFICE`))
 ```
 
 ```{r echo=FALSE}
@@ -145,8 +150,7 @@ Vamos plotar o dendograma sobre esses dados agrupados:
 
 ```{r}
 ggdendrogram(agrupamento_h_2d_complete, rotate = TRUE) +
-  theme(plot.title = element_text(hjust = 0.5)) +
-  labs(title="Gráfico 04 - Agrupamento (complete)")
+  labs(title="Gráfico 05 - Agrupamento (complete)")
 ```
 
 Para vias de comparação, vamos plotar dendogramas utilizando outros métodos de vinculação (average e single).
@@ -159,8 +163,7 @@ agrupamento_h_2d_average = filmes_scale %>%
     hclust(method = "average")
 
 ggdendrogram(agrupamento_h_2d_average, rotate = TRUE) +
-    theme(plot.title = element_text(hjust = 0.5)) +
-    labs(title="Gráfico 05 - Agrupamento (average)")
+    labs(title="Gráfico 06 - Agrupamento (average)")
 ```
 
 ```{r warning=FALSE}
@@ -170,8 +173,7 @@ agrupamento_h_2d_single = filmes_scale %>%
     hclust(method = "single")
 
 ggdendrogram(agrupamento_h_2d_single, rotate = TRUE) +
-    theme(plot.title = element_text(hjust = 0.5)) +
-    labs(title="Gráfico 06 - Agrupamento (single)")
+    labs(title="Gráfico 07 - Agrupamento (single)")
 ```
 
 Ao longo desta análise, vamos utilizar o agrupamento pelo método average, pois nele a distância entre dois grupos é definida como a média entre cada ponto de um cluster para cada ponto do outor. No método complete, a distância entre dois grupos é definida como a maior distância entre dois pontos de grupos diferentes. E, no método single, como a menor distância.
@@ -180,7 +182,7 @@ Ao longo desta análise, vamos utilizar o agrupamento pelo método average, pois
 agrupamento_h_2d = agrupamento_h_2d_average
 ```
 
-No gráfico abaixo, analisamos a dissimilaridade dos agrupamentos em função do número de grupos que se deseja ter. Vemos que há uma grade (a maior) diferença entre os pontos 1 e 2, como esperado, pois se todos os dados formam um só grupo, esse grupo tende a ser bem dissimilar. A diferença entre ter 2 ou 3 grupos também é bastante significativa, mas, a partir desse ponto, a dissimilaridade passa a variar menos. Nesse sentido, se quiséssemos formar a partir 4 grupos de filmes, cada grupo tenderia a ser mais homogênio entre si.
+No gráfico abaixo, analisamos a dissimilaridade dos agrupamentos em função do número de grupos que se deseja ter. Vemos que há uma grade (a maior) diferença entre os pontos 1 e 2, como esperado, pois se todos os dados formam um só grupo, esse grupo tende a ser bem dissimilar. A diferença entre ter 2 ou 3 grupos também é bastante significativa. A partir de 5 grupos, a dissimilaridade passa a variar menos. Nesse sentido, se quiséssemos formar a partir 5 grupos de filmes, cada grupo tenderia a ser mais homogênio entre si.
 
 ```{r}
 data.frame(k = NROW(agrupamento_h_2d$height):1, 
@@ -190,7 +192,7 @@ data.frame(k = NROW(agrupamento_h_2d$height):1,
     geom_point() + 
     theme(plot.title = element_text(hjust = 0.5)) +
     labs(x = "Número de clusters produzido", y = "Dissimilaridade na junção",
-         title="Gráfico 07 - Dissimilaridade em função de número de grupos")
+         title="Gráfico 08 - Dissimilaridade em função de número de grupos")
 ```
 
 Contudo, para termos mais informações, vamos trabalhar com até 6 grupos nesta análise.
@@ -199,10 +201,12 @@ Contudo, para termos mais informações, vamos trabalhar com até 6 grupos nesta
 plota_hclusts_2d(agrupamento_h_2d, 
                  filmes_scale, 
                  c("RATING", "`BOX OFFICE`"), 
-                 linkage_method = "average", ks = 1:6)
+                 linkage_method = "average", ks = 1:6) + scale_y_log10() +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    labs(title="Gráfico 09 - Grupos de filmes")
 ```
 
-Percebemos que quando há cinco ou mais grupos, alguns pontos de um grupo acabam se afastando de seu grupo e ficando mais próximo de outro grupo. Vamos plotar um gráfico silhueta para identificar a qualidade do agrupamento.
+Percebemos que quando há cinco ou mais grupos, há um ponto que constitui um único grupo. Vamos plotar um gráfico silhueta para identificar a qualidade do agrupamento.
 
 ```{r warning=FALSE}
 distancias = filmes_scale %>% 
@@ -215,13 +219,13 @@ distancias = filmes_scale %>%
 plot(
   silhouette(cutree(agrupamento_h_2d, k = 6), distancias), 
   col=c("#CDB380", "#036564", "#EB6841", "#EDC951", "darkred", "pink"),
-  main="Gráfico 09 - Diagnóstico do agrupamento",
+  main="Gráfico 10 - Diagnóstico do agrupamento",
   yaxt='n', ann=FALSE)
 ```
 
-TODO: - para cada grupo na combinação final que você escolheu: (1) qual o nome do grupo e porque, e (2) exemplos de filmes que você conhece nesse grupo que se encaixam na descrição/nome que você deu ao grupo.
+Como nenhuma barra horizontal cresce para o lado negativo, então nenhum grupo (diferenciados pelas cores) tem pontos que se aproximam mais de outros grupos do que do seu próprio. Os clusters foram bem definidos.
 
-Proximo: Se normalizarmos os dados.. Comparar com o grafico anterior.
+E se normalizarmos os dados?
 
 ```{r warning=FALSE, error=FALSE, message=FALSE}
 agrupamento_scale = filmes
@@ -234,63 +238,25 @@ agrupamento_scale_h_2d = agrupamento_scale %>%
     dist(method = "euclidean") %>% 
     hclust(method = "average")
 
-cluster_complete <- cutree(agrupamento_scale_h_2d, k=4)
+cluster_complete <- cutree(agrupamento_scale_h_2d, k=6)
 
-plot(agrupamento_scale %>% select(RATING, `BOX OFFICE`), col=cluster_complete)
+plot(agrupamento_scale %>% select(RATING, `BOX OFFICE`), col=cluster_complete, main="Gráfico 11 - Identificando grupos de filmes")
 ```
 
-E agora com seis grupos?
+Vamos identificar alguns desses grupos.
 
-```{r warning=FALSE, error=FALSE, message=FALSE}
-plot(agrupamento_scale %>% select(RATING, `BOX OFFICE`), col=cutree(agrupamento_scale_h_2d, k=6))
-```
+Do conjunto de 28 filmes, há um grupo de três, os identificados por rosa, que são os que possuem a maior bilheteria e a melhor avaliação. Sem muito receio, é possível afirmar que esses filmes representam a *trilogia* **O Senhor dos Aneis**, que, como se sabe, teve uma da maiores bilheterias recentes e foi sucesso de público e de crítica. 
 
-```{r warning=FALSE}
-distancias_scale = agrupamento_scale %>% 
-    column_to_rownames("TITLE") %>%
-    select(RATING, `BOX OFFICE`) %>% 
-    #mutate(`BOX OFFICE` = log10(`BOX OFFICE`)) %>% 
-    #mutate_all(funs(scale)) %>% 
-    dist(method = "euclidean")
+Há outro grupo, identificado pela cor preta, de filmes que foram sucesso de crítica mas tiveram bilheteria muito abaixo da trilogia. Teriam sido filmes mais cults? Nesse meio, estão os excelentes filmes "I'm not there", em que Cate Blanchett fez uma incrível interpretação do poeta americano Bob Dylan. Contudo, esse filme teve uma baixa bilheteria.
 
-plot(
-  silhouette(cutree(agrupamento_h_2d, k = 6), distancias_scale), 
-  col=c("#CDB380", "#036564", "#EB6841", "#EDC951", "darkred", "pink"),
-  main="Gráfico 09 - Diagnóstico do agrupamento",
-  yaxt='n', ann=FALSE)
-```
+Há um grupo também dos filmes de baixa bilheteria e de crítica. São os três identificados por azul. Dentres esses filmes, está  "Elizabeth: The Golden Age", continuação do filme Elizabeth, de 1998, que rendeu indicação ao oscar de melhor atriz principal. Contudo, sua continuação não teve boa recepção.
 
+Vamos falar de um último grupo, o identificado por azul escuro, que representam filmes que até tiveram boa bilheteria (o público gostou), mas que não ganharam os críticos, pois têm avaliação mediana. Dentre esses filmes, estão alguns da trilogia **The Hobbit**, que pegou carona no sucesso da trilogia O Senhor dos Aneis, mas não teve boa recepção dos críticos.
 
-### VISUALIZANDO..
+---
+Material de apoio usado:
 
-```{r}
-agrupamento_h_2d_dendograma = as.dendrogram(agrupamento_h_2d)
-```
-
-Customizando dendograma:
-
-```{r}
-labelColors = c("#CDB380", "#036564", "#EB6841", "#EDC951")
-
-clusMember = cutree(agrupamento_h_2d, 4)
-
-# function to get 
-colLab <- function(n) {
-    if (is.leaf(n)) {
-        a <- attributes(n)
-        labCol <- labelColors[clusMember[which(names(clusMember) == a$label)]]
-        attr(n, "nodePar") <- c(a$nodePar, lab.col = labCol)
-    }
-    n
-}
-
-clusDendro = dendrapply(agrupamento_h_2d_dendograma, colLab)
-
-plot(clusDendro, main = "Cool Dendrogram", type = "triangle")
-```
-
-Créditos:
-https://rpubs.com/gaston/dendrograms
-Naza
-https://rpubs.com/mrkm_a/ClusteringWithR 
-http://www.saedsayad.com/clustering_hierarchical.htm
+- [link1](https://rpubs.com/gaston/dendrograms)
+- [link2](https://github.com/nazareno/ciencia-de-dados-1/blob/master/3-Agrupamento-e-PCA/1-agrupamento-intro.Rmd)
+- [link3](https://rpubs.com/mrkm_a/ClusteringWithR)
+- [link4](http://www.saedsayad.com/clustering_hierarchical.htm)
