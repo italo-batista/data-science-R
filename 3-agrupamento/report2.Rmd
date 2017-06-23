@@ -1,0 +1,42 @@
+---
+title: "Polygraph's Film Dialogue Analyzis"
+output:
+  html_document:
+    fig_width: 6
+    fig_height: 4
+    theme: journal
+theme: united
+highlight: tango
+css: styles.css
+---
+```{r warning=FALSE, error=FALSE, message=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+#library(tidyverse, warn.conflicts = F)
+library(rvest)
+library(plotly)
+library(cluster)
+library(ggdendro)
+theme_set(theme_light())
+source("plota_solucoes_hclust.R")
+```
+
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+characters = read_csv("3-agrupamento/data/character_list5.csv")
+big_data = read_csv("/home/italohmb/repositories/data-analyzis/3-agrupamento/data/meta_data7.csv") %>% na.omit()
+```
+```{r}
+data_golden_age = big_data %>% filter(year <= 1970) 
+characters_golde_age = characters %>% filter(script_id %in% data_golden_age$script_id) %>% select(-c(age))
+```
+
+# filmes:
+#   qnt de personagens femininas
+#   qnt de personagens masculinas
+#   qnt de palavras de personagens masculinas
+#   qnt de palavras de personagens femininas
+#   renda (gross)
+
