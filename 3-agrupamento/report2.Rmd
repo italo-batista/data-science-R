@@ -9,29 +9,68 @@ theme: united
 highlight: tango
 css: styles.css
 ---
+
 ```{r warning=FALSE, error=FALSE, message=FALSE}
-library(tidyr)
-library(dplyr)
-library(ggplot2)
-library(readr)
-#library(tidyverse, warn.conflicts = F)
+library(tidyverse, warn.conflicts = F)
 library(rvest)
 library(plotly)
 library(cluster)
 library(ggdendro)
-theme_set(theme_light())
-source("plota_solucoes_hclust.R")
+library(ggfortify)
+library(broom)
+#theme_set(theme_light())
+theme_set(theme_bw())
 ```
-
 
 ```{r warning=FALSE, message=FALSE, error=FALSE}
-characters = read_csv("3-agrupamento/data/character_list5.csv")
-big_data = read_csv("/home/italohmb/repositories/data-analyzis/3-agrupamento/data/meta_data7.csv") %>% na.omit()
+characters = read_csv("data/character_list5.csv")
+big_data = read_csv("data/meta_data7.csv") %>% na.omit()
 ```
+
 ```{r}
 data_golden_age = big_data %>% filter(year <= 1970) 
 characters_golde_age = characters %>% filter(script_id %in% data_golden_age$script_id) %>% select(-c(age))
 ```
+
+Calculando número de personagns homens e mulheres.
+
+```{r}
+gendersf = characters_golde_age %>%
+  filter(gender == 'f') %>%
+  group_by(script_id) %>%
+  summarise(nf = n())
+
+gendersm = characters_golde_age %>%
+  filter(gender == 'm') %>%
+  group_by(script_id) %>%
+  summarise(nm = n())
+
+genders = left_join(gendersf, gendersm, by="script_id")
+```
+
+Calculando soma de número médio de palavras por minuto por gênero
+
+```{r}
+wordsf = characters_golde_age %>%
+  filter(gender == 'f') %>%
+  group_by(script_id) %>%
+  summarise(wordsf = sum(words))
+
+wordsm = characters_golde_age %>%
+  filter(gender == 'm') %>%
+  group_by(script_id) %>%
+  summarise(wordsm = sum(words))
+
+words = left_join(wordsf, wordsm, by="script_id")
+```
+
+```{r}
+d = data_golden_age
+d = left_join(d, genders, by="script_id")
+d = left_join(d, words, by="script_id")
+```
+
+
 
 # filmes:
 #   qnt de personagens femininas

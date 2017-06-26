@@ -40,7 +40,7 @@ vikings = dados %>% filter(series_name == "Vikings")
 
 O gráfico a seguir utiliza dados de séries extraídos do [IMDB](http://www.imdb.com). Nele estão desenhados dados de um conjunto específico de séries (Arrow, Dexter, Game of Thrones, Prison Break, Vikings). Com o gráfico, é possível ver o comportamento específico de uma série (como os seus episódios foram avaliados ao longo da série), além de comparar entre séries.  *Qual série teria sido melhor avaliada no geral? A avaliação dos episódios variam muito?.* Esse gráfico pode ajudá-lo a explorar questões como essas.
 
-No gráfico, *as linhas representam uma ponderação das avaliações de episódios* de uma série específica. Com o gráfico, por exemplo, **a gente vê que Game of Thrones é significativamente melhor avaliada do que as outras temporadas**.
+No gráfico, *as linhas representam uma ponderação das avaliações de episódios* de uma série específica. Com o gráfico, por exemplo, **a gente vê que Game of Thrones é significativamente melhor avaliada do que as outras séries**.
 
 Você pode *passar o mouse sobre as linhas* e ver informações de um episódio específico. Você também pode *usar os filtros na barra lateral* para ir atualizando o gráfico. Se clicar nos pontos, serão desenhados todos os episódios de uma séries, em que *o diâmetro do ponto representa o número de avaliações que um episódios recebeu* (**você vai perceber também que os episódios de Game of Thrones foram os que mais receberam votos**).
 
