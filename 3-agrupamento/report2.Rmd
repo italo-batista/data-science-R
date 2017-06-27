@@ -12,6 +12,14 @@ css: styles.css
 
 ```{r warning=FALSE, error=FALSE, message=FALSE}
 library(tidyverse, warn.conflicts = F)
+```
+```{r warning=FALSE, error=FALSE, message=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+```
+```{r warning=FALSE, error=FALSE, message=FALSE}
 library(rvest)
 library(plotly)
 library(cluster)
@@ -27,14 +35,14 @@ characters = read_csv("data/character_list5.csv")
 big_data = read_csv("data/meta_data7.csv") %>% na.omit()
 ```
 
-```{r}
+```{r warning=FALSE, error=FALSE, message=FALSE}
 data_golden_age = big_data %>% filter(year <= 1970) 
 characters_golde_age = characters %>% filter(script_id %in% data_golden_age$script_id) %>% select(-c(age))
 ```
 
 Calculando número de personagns homens e mulheres.
 
-```{r}
+```{r warning=FALSE, error=FALSE, message=FALSE}
 gendersf = characters_golde_age %>%
   filter(gender == 'f') %>%
   group_by(script_id) %>%
@@ -45,12 +53,12 @@ gendersm = characters_golde_age %>%
   group_by(script_id) %>%
   summarise(nm = n())
 
-genders = left_join(gendersf, gendersm, by="script_id")
+genders = full_join(gendersm, gendersf, by="script_id")
 ```
 
 Calculando soma de número médio de palavras por minuto por gênero
 
-```{r}
+```{r warning=FALSE, error=FALSE, message=FALSE}
 wordsf = characters_golde_age %>%
   filter(gender == 'f') %>%
   group_by(script_id) %>%
@@ -61,21 +69,19 @@ wordsm = characters_golde_age %>%
   group_by(script_id) %>%
   summarise(wordsm = sum(words))
 
-words = left_join(wordsf, wordsm, by="script_id")
+words = full_join(wordsf, wordsm, by="script_id")
 ```
 
-```{r}
+```{r warning=FALSE, error=FALSE, message=FALSE}
 d = data_golden_age
 d = left_join(d, genders, by="script_id")
 d = left_join(d, words, by="script_id")
 ```
 
-
-
 # filmes:
-#   qnt de personagens femininas
-#   qnt de personagens masculinas
-#   qnt de palavras de personagens masculinas
-#   qnt de palavras de personagens femininas
-#   renda (gross)
+#   tamanho do elenco
+#   proporção de homens ou mulheres
+#   bilheteria
+#   quantidade de palavras no filme (se um filme é mais contemplativo ou tem mais diálogos)
+
 
