@@ -10,10 +10,13 @@ highlight: tango
 css: styles.css
 ---
 
+```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, error=FALSE, warning=FALSE, set.seed(24))
+```
 ```{r warning=FALSE, error=FALSE, message=FALSE}
 library(tidyverse, warn.conflicts = F)
 ```
-```{r warning=FALSE, error=FALSE, message=FALSE}
+```{r warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
 library(tidyr)
 library(dplyr)
 library(ggplot2)
@@ -26,9 +29,17 @@ library(cluster)
 library(ggdendro)
 library(ggfortify)
 library(broom)
+library(GGally)
+library(reshape2)
 #theme_set(theme_light())
 theme_set(theme_bw())
 ```
+
+Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo identificar agrupamentos em dados sobre quantidade de falas dos personagens de diferentes gêneros em filmes de hollywood. Essa análise serve de mote para trabalharmos com algumas técnicas de **agrupamento de múltiplas (> 2) dimensões** utilizando a técnica k-means.
+
+Os dados aqui utilizados foram organizados por Matthew Daniels e estão disponíveis [aqui](https://github.com/matthewfdaniels/scripts).
+
+Nesta análise, fazemos um recorte no tempo. Não utilizaremos todos os filmes, mas apenas aqueles que fazem parte do período de tempo conhecido como **Era de ouro de Hollywood**, da década de 20 até o fim dos anos 60's.
 
 ```{r warning=FALSE, message=FALSE, error=FALSE}
 characters = read_csv("data/character_list5.csv")
@@ -36,18 +47,22 @@ big_data = read_csv("data/meta_data7.csv") %>% na.omit()
 ```
 
 ```{r warning=FALSE, error=FALSE, message=FALSE}
-data_golden_age = big_data %>% filter(year <= 1970) %>% select(script_id, title, gross) 
+data_golden_age = big_data %>% filter(year < 1970) %>% select(script_id, title, gross) 
 characters_golde_age = characters %>% filter(script_id %in% data_golden_age$script_id) %>% select(-c(age))
-
+```
+```{r warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
 remove(characters)
 remove(big_data)
 ```
 
-# filmes:
-#   tamanho do elenco
-#   proporção de homens ou mulheres
-#   bilheteria
-#   quantidade de palavras no filme (se um filme é mais contemplativo ou tem mais diálogos)
+Vamos agrupar os filmes segundo as seguintes variáveis:
+
+- tamanho do elenco
+- proporção de homens no elenco
+- bilheteria
+- quantidade de palavras no filme (se um filme é mais contemplativo ou tem mais diálogos)
+
+Primeiro, vamos organizar o os dados de modo a obter essas variáveis.
 
 Calculando o número de personagens por filme:
 
@@ -86,7 +101,7 @@ d = full_join(d, homens, by="script_id")
 d = full_join(d, words, by="script_id") %>% select(-n_homens)
 ```
 
-```{r}
+```{r echo=FALSE}
 remove(words)
 remove(homens)
 remove(elenco)
@@ -94,3 +109,119 @@ remove(characters_golde_age)
 remove(data_golden_age)
 ```
 
+Deste modo, temos os seguintes dados:
+
+```{r}
+head(d)
+```
+
+Cada observação é um filme, que possui um id (*script_id*), o título do filme (*title*), bilheteria corrigida (*gross*), tamanho do elenco (*elenco_tam*), proporção de homens no elenco (*proporcao_homens*), soma do número de palavras ditas por todos as personagens do filme (*words*).
+
+```{r}
+d %>% select(-title, -script_id) %>% summary()
+```
+
+É possível perceber que as variáveis são bastante assimétricas. Vamos transformá-las de modo a termos um intervalo próximo entre elas, mas preservando proporcionalmente as diferenças entre filmes. Isos nos ajudará a criar melhores visualizações dos grupos.
+
+```{r}
+d.temp = d
+d.temp$proporcao_homens = d.temp$proporcao_homens * 100
+d.temp$elenco_tam = d.temp$elenco_tam * 10
+d.scaled = d.temp %>% 
+  select(title, gross, elenco_tam, words, proporcao_homens) %>%
+  mutate_each(funs(log), 2:5)
+```
+
+```{r echo=FALSE}
+remove(d.temp)
+```
+
+Vamos visualizar como os dados transformados se comportam:
+
+```{r}
+d.scaled %>% select(-title) %>% ggpairs()
+```
+
+Como nossos dados contêm poucos filmes (17 apenas), não conseguimos identificar agrupamentos bem definidos de duas dimensões. Os dados parecem estar bem dispersos. 
+Vamos proceder com o agrupamento de 4 dimensões utilizando o algoritmo kmeans, de modo a identificar grupos de filmes da era de ouro segundo as quatro as variáveis organizadas acima.
+> O k-means é um método de agrupamento que objetiva particionar n observações dentre k grupos onde cada observação pertence ao grupo mais próximo da média.
+>  O K-Means busca minimizar a distância dos elementos a um conjunto de k centros de forma iterativa. A distância entre um ponto e um conjunto de clusters é definida como sendo a distância do ponto ao centro mais próximo dele.
+
+O algoritmo do K-Means pode ser descrito da seguinte maneira:
+1. Escolher k distintos valores para centros dos grupos (possivelmente, de forma aleatória)
+2. Associar cada ponto ao centro mais próximo
+3. Recalcular o centro de cada grupo
+4. Repetir os passos 2-3 até nenhum elemento mudar de grupo.
+
+Normalmente, o usuário que decide quantos grupos (k=número de grupos) gostaria que o k-means pudesse identificar. Isto costuma ser um problema, tendo em vista que normalmente não se sabe quantos clusters existem a priori.
+
+A seguinte visualização pode nos ajudar:
+
+```{r}
+set.seed(24)
+
+explorando_k = tibble(k = 1:15) %>% 
+    group_by(k) %>% 
+    do(
+        kmeans(select(d.scaled, -title), 
+               centers = .$k, 
+               nstart = 20) %>% glance()
+    )
+explorando_k %>% 
+    ggplot(aes(x = k, y = betweenss / totss)) + 
+    geom_line() + 
+    geom_point()
+```
+
+A ideia do gráfico acima é: um número k de grupos será uma boa escolha enquanto a linha crescer. No momento em que a linha começar a cresce de maneira não significativa, então k já não será um bom número de grupos.
+
+Podemos então escolher k = 4 ou 5 ou 6... Vamos escolher k = 4, ou seja, vamos usar o k-means para identificar 4 grupos.
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+set.seed(24)
+
+n_clusters = 4
+
+km = d.scaled %>% 
+    select(-title) %>% 
+    kmeans(centers = n_clusters, nstart = 20)
+```
+
+Organizando os dados segundo os grupos identificados:
+
+```{r}
+d.scaled.km.long = km %>% 
+    augment(d.scaled) %>%
+    gather(key = "variável", 
+           value = "valor", 
+           -title, -.cluster)
+```
+
+Visualizando os grupos:
+
+```{r fig.height=6}
+d.scaled.km.long %>% 
+    ggplot(aes(x=`variável`, y=valor, group=title, colour=.cluster)) + 
+    geom_line(alpha = .5) + 
+    facet_wrap(~ .cluster) 
+```
+
+```{r echo=FALSE}
+autoplot(km, data=d.scaled, label = TRUE)
+```
+
+```{r}
+dists = d.scaled %>% 
+    select(-title) %>% 
+    dist()
+
+plot(silhouette(km$cluster, dists), 
+     col = c("#CDB380", "#036564", "#EB6841", "#EDC951"),
+     main="Gráfico 10 - Diagnóstico do agrupamento",
+     yaxt='n', ann=FALSE)
+```
+
+
+interpretando os padrões encontrados
+  dar nome aos grupos
+  descrevê-los

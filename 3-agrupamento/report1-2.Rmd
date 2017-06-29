@@ -1,0 +1,175 @@
+---
+title: "Agrupamento 4 dim Hierarquico"
+output:
+  html_document:
+    fig_width: 6
+    fig_height: 4
+    theme: journal
+theme: united
+highlight: tango
+css: styles.css
+---
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+library(tidyverse, warn.conflicts = F)
+```
+```{r warning=FALSE, error=FALSE, message=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+```
+```{r warning=FALSE, error=FALSE, message=FALSE}
+library(rvest)
+library(plotly)
+library(cluster)
+library(ggdendro)
+library(ggfortify)
+library(broom)
+library(GGally)
+library(reshape2)
+#theme_set(theme_light())
+theme_set(theme_bw())
+```
+
+Falar do recorte no tempo.
+
+```{r warning=FALSE, message=FALSE, error=FALSE}
+characters = read_csv("data/character_list5.csv")
+big_data = read_csv("data/meta_data7.csv") %>% na.omit()
+```
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+data_golden_age = big_data %>% filter(year <= 1970) %>% select(script_id, title, gross) 
+characters_golde_age = characters %>% filter(script_id %in% data_golden_age$script_id) %>% select(-c(age))
+
+remove(characters)
+remove(big_data)
+```
+
+Vamos agrupar os dados segundo as seguintes variáveis:
+
+- tamanho do elenco
+- proporção de homens ou mulheres
+- bilheteria
+- quantidade de palavras no filme (se um filme é mais contemplativo ou tem mais diálogos)
+
+Primeiro, vamos organizar o os dados de modo a obter essas variáveis.
+
+Calculando o número de personagens por filme:
+
+```{r}
+elenco = characters_golde_age %>%
+  group_by(script_id) %>%
+  summarise(elenco_tam = n())
+```
+
+Calculando a quantidade de palavras no filme, para ter uma ideia da quantidade de diálogos no filme:
+
+```{r}
+words = characters_golde_age %>%
+  group_by(script_id) %>%
+  summarise(words = sum(words))
+```
+
+Calculando a proporção de homens
+
+```{r}
+homens = characters_golde_age %>%
+  filter(gender == "m") %>%
+  group_by(script_id) %>%
+  summarise(n_homens = n())
+
+homens = full_join(homens, elenco, by="script_id")
+
+homens$proporcao_homens = round(homens$n_homens / homens$elenco_tam, digits=2)
+```
+
+Organizando essas informações:
+
+```{r}
+d = data_golden_age
+d = full_join(d, homens, by="script_id")
+d = full_join(d, words, by="script_id") %>% select(-n_homens)
+```
+```{r}
+remove(words)
+remove(homens)
+remove(elenco)
+remove(characters_golde_age)
+remove(data_golden_age)
+```
+
+Explorando:
+
+```{r}
+head(d)
+```
+
+Cada observação é um filme, que possui um id (*script_id*), o título do filme (*title*), bilheteria corrigida (*gross*), tamanho do elenco (*elenco_tam*), proporção de homens no elenco (*proporcao_homens*), soma do número de palavras ditas por todos as personagens do filme (*words*).
+
+```{r}
+d %>% select(-title, -script_id) %>% summary()
+```
+
+É possível perceber que a varíavel gross (bilheteria) é bastante assimétricas. Vamos transformá-la para seu log, para nos ajudar a criar melhor visualizações.
+
+```{r}
+d.log = d %>% select(-script_id)
+d.log$gross = log2(d.log$gross)
+```
+
+```{r}
+d.log %>% select(-title) %>% ggpairs()
+```
+
+Falar alguma coisa desse gráfico.
+Plotar mais algum?
+
+Organizando todas as variáveis para melho visualização:
+
+```{r}
+d.temp = d
+d.temp$proporcao_homens = d.temp$proporcao_homens * 100
+d.temp$elenco_tam = d.temp$elenco_tam * 10
+d.scaled = d.temp %>% 
+  select(title, gross, elenco_tam, words, proporcao_homens) %>%
+  mutate_each(funs(log), 2:5)
+```
+
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+dists = d.scaled %>% 
+    column_to_rownames("title") %>% 
+    dist(method = "euclidean")
+
+hc = hclust(dists, method = "complete")
+```
+
+```{r}
+n_clusters = 4
+d.scaled = d.scaled %>% 
+  mutate(cluster = hc %>%
+           cutree(k = n_clusters) %>%
+           as.character())
+```
+
+```{r}
+d.long = melt(d.scaled, id.vars = c("title", "cluster"))
+```
+
+```{r}
+hc %>% 
+    cutree(k = n_clusters) %>% 
+    silhouette(dists) %>% 
+    plot(col = c("#CDB380", "#036564", "#EB6841", "#EDC951"),
+         main="Gráfico 10 - Diagnóstico do agrupamento",
+         yaxt='n', ann=FALSE)
+```
+
+```{r}
+d.long %>% 
+    ggplot(aes(x=variable, y=value, group=title, colour=cluster)) + 
+    geom_line(alpha = 0.4) + 
+    facet_wrap(~ cluster)
+```
