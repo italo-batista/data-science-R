@@ -1,5 +1,5 @@
 ---
-title: "Polygraph's Film Dialogue Analyzis"
+title: "Agrupando filmes da Era de ouro de Hollywood"
 output:
   html_document:
     fig_width: 6
@@ -11,7 +11,7 @@ css: styles.css
 ---
 
 ```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
-knitr::opts_chunk$set(echo = TRUE, message=FALSE, error=FALSE, warning=FALSE, set.seed(24))
+knitr::opts_chunk$set(set.seed(24))
 ```
 ```{r warning=FALSE, error=FALSE, message=FALSE}
 library(tidyverse, warn.conflicts = F)
@@ -31,8 +31,9 @@ library(ggfortify)
 library(broom)
 library(GGally)
 library(reshape2)
-#theme_set(theme_light())
-theme_set(theme_bw())
+library(gridExtra)
+library(factoextra)
+theme_set(theme_light())
 ```
 
 Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo identificar agrupamentos em dados sobre quantidade de falas dos personagens de diferentes gêneros em filmes de hollywood. Essa análise serve de mote para trabalharmos com algumas técnicas de **agrupamento de múltiplas (> 2) dimensões** utilizando a técnica k-means.
@@ -75,9 +76,9 @@ elenco = characters_golde_age %>%
 Calculando a quantidade de palavras no filme, para ter uma ideia da quantidade de diálogos no filme:
 
 ```{r}
-words = characters_golde_age %>%
+tam_dialogo = characters_golde_age %>%
   group_by(script_id) %>%
-  summarise(words = sum(words))
+  summarise(tam_dialogo = sum(words))
 ```
 
 Calculando a proporção de homens
@@ -90,7 +91,7 @@ homens = characters_golde_age %>%
 
 homens = full_join(homens, elenco, by="script_id")
 
-homens$proporcao_homens = round(homens$n_homens / homens$elenco_tam, digits=2)
+homens$prop_homens = round(homens$n_homens / homens$elenco_tam, digits=2)
 ```
 
 Organizando essas informações:
@@ -98,11 +99,12 @@ Organizando essas informações:
 ```{r}
 d = data_golden_age
 d = full_join(d, homens, by="script_id")
-d = full_join(d, words, by="script_id") %>% select(-n_homens)
+d = full_join(d, tam_dialogo, by="script_id") %>% select(-n_homens)
+names(d)[3] = "bilheteria"
 ```
 
 ```{r echo=FALSE}
-remove(words)
+remove(tam_dialogo)
 remove(homens)
 remove(elenco)
 remove(characters_golde_age)
@@ -115,7 +117,7 @@ Deste modo, temos os seguintes dados:
 head(d)
 ```
 
-Cada observação é um filme, que possui um id (*script_id*), o título do filme (*title*), bilheteria corrigida (*gross*), tamanho do elenco (*elenco_tam*), proporção de homens no elenco (*proporcao_homens*), soma do número de palavras ditas por todos as personagens do filme (*words*).
+Cada observação é um filme, que possui um id (*script_id*), o título do filme (*title*), bilheteria corrigida (*gross*), tamanho do elenco (*elenco_tam*), proporção de homens no elenco (*prop_homens*), soma do número de palavras ditas por todos as personagens do filme (*tam_dialogo*).
 
 ```{r}
 d %>% select(-title, -script_id) %>% summary()
@@ -125,10 +127,10 @@ d %>% select(-title, -script_id) %>% summary()
 
 ```{r}
 d.temp = d
-d.temp$proporcao_homens = d.temp$proporcao_homens * 100
+d.temp$prop_homens = d.temp$prop_homens * 100
 d.temp$elenco_tam = d.temp$elenco_tam * 10
 d.scaled = d.temp %>% 
-  select(title, gross, elenco_tam, words, proporcao_homens) %>%
+  select(title, bilheteria, elenco_tam, tam_dialogo, prop_homens) %>%
   mutate_each(funs(log), 2:5)
 ```
 
@@ -144,14 +146,17 @@ d.scaled %>% select(-title) %>% ggpairs()
 
 Como nossos dados contêm poucos filmes (17 apenas), não conseguimos identificar agrupamentos bem definidos de duas dimensões. Os dados parecem estar bem dispersos. 
 Vamos proceder com o agrupamento de 4 dimensões utilizando o algoritmo kmeans, de modo a identificar grupos de filmes da era de ouro segundo as quatro as variáveis organizadas acima.
+
 > O k-means é um método de agrupamento que objetiva particionar n observações dentre k grupos onde cada observação pertence ao grupo mais próximo da média.
+
 >  O K-Means busca minimizar a distância dos elementos a um conjunto de k centros de forma iterativa. A distância entre um ponto e um conjunto de clusters é definida como sendo a distância do ponto ao centro mais próximo dele.
 
 O algoritmo do K-Means pode ser descrito da seguinte maneira:
-1. Escolher k distintos valores para centros dos grupos (possivelmente, de forma aleatória)
-2. Associar cada ponto ao centro mais próximo
-3. Recalcular o centro de cada grupo
-4. Repetir os passos 2-3 até nenhum elemento mudar de grupo.
+
+- 1: Escolher k distintos valores para centros dos grupos (possivelmente, de forma aleatória)
+- 2: Associar cada ponto ao centro mais próximo
+- 3: Recalcular o centro de cada grupo
+- 4: Repetir os passos 2-3 até nenhum elemento mudar de grupo.
 
 Normalmente, o usuário que decide quantos grupos (k=número de grupos) gostaria que o k-means pudesse identificar. Isto costuma ser um problema, tendo em vista que normalmente não se sabe quantos clusters existem a priori.
 
@@ -187,6 +192,19 @@ km = d.scaled %>%
     kmeans(centers = n_clusters, nstart = 20)
 ```
 
+Vamos plotar um gráfico silhueta para identificar a qualidade do agrupamento.
+
+```{r echo=FALSE}
+dists = d.scaled %>% 
+    select(-title) %>% 
+    dist()
+
+sil = silhouette(km$cluster, dist(dists))
+fviz_silhouette(sil, col = c("#CDB380", "#036564", "#EB6841", "#EDC951"))
+```
+
+Como nenhuma barra cresce se extende o lado negativo (para baixo), então nenhum grupo (diferenciados pelas cores) tem pontos que se aproximam mais de outros grupos do que do seu próprio. Os clusters foram bem definidos.
+
 Organizando os dados segundo os grupos identificados:
 
 ```{r}
@@ -199,29 +217,19 @@ d.scaled.km.long = km %>%
 
 Visualizando os grupos:
 
-```{r fig.height=6}
+```{r fig.width=8, fig.height=6}
 d.scaled.km.long %>% 
     ggplot(aes(x=`variável`, y=valor, group=title, colour=.cluster)) + 
     geom_line(alpha = .5) + 
     facet_wrap(~ .cluster) 
 ```
 
-```{r echo=FALSE}
-autoplot(km, data=d.scaled, label = TRUE)
-```
+Vamos identificar esses grupos!
 
-```{r}
-dists = d.scaled %>% 
-    select(-title) %>% 
-    dist()
+Primeiro vemos que a proporção de personagens homens e de diálogos não se diferencia muito entre os grupos. Então vamos focar mais em tamanho do elenco e bilheteria :)
 
-plot(silhouette(km$cluster, dists), 
-     col = c("#CDB380", "#036564", "#EB6841", "#EDC951"),
-     main="Gráfico 10 - Diagnóstico do agrupamento",
-     yaxt='n', ann=FALSE)
-```
+- O grupo 1 parece ser o grupo de filmes com um tamanho de elenco um pouco menor e de *bilheteria mais baixa*! Filmes de **baixo orçamento** (para elenco/divulgação)? Talvez.
+- O grupo 2 é de filmes com um elenco de tamanho médio, mas com uma bilheteria melhor que o grupo 1. Filmes menos populares? Pelo fato de terem um elenco melhor (maior orçamento), mas com bilheteria média.
+- O grupo 3 também é de filmes com elenco de tamanho médio. Contudo, neste grupo os filmes têm boa bilheteria! Filmes **de sucesso**?
+- Por fim, o grupo t4 é de filmes que parecem ter recebido **alto investimento**, pois têm um elenco ligeiramente maior e tiveram uma ótima bilheteria!
 
-
-interpretando os padrões encontrados
-  dar nome aos grupos
-  descrevê-los
