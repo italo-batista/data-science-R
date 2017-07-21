@@ -1,0 +1,285 @@
+---
+title: "Agrupamento de Filmes com PCA"
+author: "Italo Batista"
+date: "18 de julho de 2017"
+output:
+  html_document:
+    fig_width: 6
+    fig_height: 4
+    theme: journal
+theme: united
+highlight: tango
+css: styles.css
+---
+
+```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
+knitr::opts_chunk$set(set.seed(24))
+```
+```{r warning=FALSE, error=FALSE, message=FALSE}
+library(tidyverse, warn.conflicts = F)
+```
+```{r warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(readr)
+```
+```{r warning=FALSE, error=FALSE, message=FALSE}
+library(rvest)
+library(plotly)
+library(cluster)
+library(ggdendro)
+library(ggfortify)
+library(broom)
+library(GGally)
+library(reshape2)
+library(gridExtra)
+library(factoextra)
+library(broom)
+library(ggfortify, quietly = TRUE)
+library(knitr, quietly = TRUE)
+library(highcharter)
+theme_set(theme_light())
+```
+
+Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo identificar agrupamentos em dados sobre quantidade de falas dos personagens de diferentes gêneros em filmes de hollywood. Essa análise serve de mote para trabalharmos com algumas técnicas de **agrupamento de múltiplas (> 2) dimensões** utilizando técnicas de **Redução de dimensionalidade** (Análise de Componentes Principais (ACP) ou Principal Component Analysis (PCA)).
+
+Os dados aqui utilizados foram organizados por Matthew Daniels e estão disponíveis [aqui](https://github.com/matthewfdaniels/scripts). É mesma base de dados que utilizamos na análise anterior! :)
+
+Faremos aqui um recorte no tempo. Analizaremos filmes das décadas de 70 e 80.
+```{r warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+characters = read_csv("data/character_list5.csv")
+big_data = read_csv("data/meta_data7.csv") %>% na.omit()
+```
+```{r warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
+data_golden_age = big_data %>% filter(year >= 1970 & year < 1980) %>% select(script_id, title, gross) 
+characters_golde_age = characters %>% filter(script_id %in% data_golden_age$script_id) %>% select(-c(age))
+```
+```{r warning=FALSE, error=FALSE, message=FALSE, echo=FALSE, echo=FALSE}
+remove(characters)
+remove(big_data)
+```
+
+Estaremos interessados em analisar os filmes segundo as seguintes características:
+
+- tamanho do elenco
+- proporção de homens no elenco
+- bilheteria
+- quantidade de palavras no filme (se um filme é mais contemplativo ou tem mais diálogos)
+
+```{r echo=FALSE}
+elenco = characters_golde_age %>%
+  group_by(script_id) %>%
+  summarise(elenco_tam = n())
+
+tam_dialogo = characters_golde_age %>%
+  group_by(script_id) %>%
+  summarise(tam_dialogo = sum(words))
+
+homens = characters_golde_age %>%
+  filter(gender == "m") %>%
+  group_by(script_id) %>%
+  summarise(n_homens = n())
+
+homens = full_join(homens, elenco, by="script_id")
+
+homens$prop_homens = round(homens$n_homens / homens$elenco_tam, digits=2)
+
+d = data_golden_age
+d = full_join(d, homens, by="script_id")
+d = full_join(d, tam_dialogo, by="script_id") %>% select(-n_homens)
+names(d)[3] = "bilheteria"
+
+remove(tam_dialogo)
+remove(homens)
+remove(elenco)
+remove(characters_golde_age)
+remove(data_golden_age)
+```
+
+Nossa base de dados:
+
+```{r}
+head(d)
+```
+```{r echo=FALSE}
+d = d %>% select(-script_id)
+```
+
+Cada observação é um filme, que possui um id (*script_id*), o título do filme (*title*), bilheteria corrigida (*gross*), tamanho do elenco (*elenco_tam*), proporção de homens no elenco (*prop_homens*), soma do número de palavras ditas por todos as personagens do filme (*tam_dialogo*).
+
+```{r}
+d %>% select(-title) %>% summary()
+```
+
+É possível perceber que as variáveis são bastante assimétricas. Vamos transformá-las de modo a termos um intervalo próximo entre elas, mas preservando proporcionalmente as diferenças entre filmes. Isos nos ajudará a criar melhores visualizações dos grupos.
+
+```{r error=FALSE, message=FALSE}
+d.temp = d
+d.temp$prop_homens = d.temp$prop_homens * 100
+d.temp$elenco_tam = d.temp$elenco_tam * 10
+d.scaled = d.temp %>% 
+  select(title, bilheteria, elenco_tam, tam_dialogo, prop_homens) %>%
+  mutate_each(funs(log), 2:5)
+```
+
+```{r echo=FALSE}
+remove(d.temp)
+```
+
+Vamos visualizar como os dados transformados se comportam:
+
+```{r}
+d.scaled %>% select(-title) %>% ggpairs()
+```
+
+```{r echo=FALSE}
+# d.scaled %>% 
+#     gather(key = "variavel", value = "valor", -title) %>% 
+#     ggplot(aes(x = valor)) + 
+#     geom_histogram(fill = "lightyellow", color = "black", bins = 20) + 
+#     facet_grid(. ~ variavel, scales = "free_x")
+```
+
+Como nossos dados contêm poucos filmes (29 apenas), não conseguimos visualizar bem agrupamentos de duas dimensões em vários dos gráficos de dispersão. E apesar de termos 4 variáveis, não conseguimos ver as quatro variáveis para um ponto de uma vez nessa visualização. Nesse sentido, vamos usar redução de dimensionalidade para projetarmos em uma única visualização agrupamentos que considerem as 4 variáveis.
+Vamos proceder com a técnica PCA, gerando duas variáveis, PC1 e PC2, em que cada uma dessas variáveis é calculada a partir das 4 que tínhamos inicialmente, de modo a identificar grupos de filmes.
+
+```{r}
+pr.out <- prcomp(select(d.scaled, - title))
+
+autoplot(pr.out, data = d, size = 2, 
+         colour = "grey",
+         loadings = TRUE, loadings.colour = 'goldenrod3',
+         loadings.label = TRUE, 
+         loadings.label.size = 3.5,
+         loadings.label.colour='darkslategrey')
+```
+
+> Os vetores mostram a relação entre PC1 e PC2 e as variáveis que tínhamos inicialmente. Quanto mais alinhado for o eixo de PC1 e um vetor, maior será a variação nas variáveis dos vetores quando um ponto se mover na direção de PC1 no gráfico. 
+
+Por exemplo, tam_dialogo, elenco_tam e prop_homens variam bastante quando um ponto está mais acima ou abaixo no gráfico (direção de PC2), mas não variam muito em função da posição de um ponto no eixo horizontal (direção de PC1). Bilheteria varia principalmente na medida que os pontos estão à esquerda ou à direita no gráfico (PC1).
+
+Sendo assim, por exemplo, os valores mais à esquerda e acima terão valores mais altos de tam_dialogo e elenco_tam, e valores mais baixos de bilheteria.
+
+Outra forma de ver essa mesma informação é vendo PC1 e PC2 como duas funções das 4 variáveis originais:
+
+```{r}
+tidy(pr.out, "variables") %>% 
+    filter(PC <= 2) %>% 
+    spread(column, value)
+```
+
+Os valores na tabela são os coeficientes, e a leitura é que: 
+$PC1 = 0.99 * bilheteria + 0.08 * elencoTam + 0.02 * propHomens - 0.01 * tamDialogo$. 
+Isso significa, por exemplo, que mudar aumentar unidades em bilheteria aumenta PC1 e faz com que um ponto esteja mais à direita no gráfico. Aumentar as outras variáveis influencia muito pouco. 
+
+Note que a variávei prop_homens influencia pouco na localização do ponto no gráfico.
+
+Parece não haver grupos bem definidos segundo as características trabalhadas. Vemos que há um filme no canto superior esquerdo, que tem um valor bastante alto para elencon_tam e tam_dialogo e um valor bastante baixo de bilheteria. Há outros dois filmes à esquerda do gráfico, que, portanto, terão valores mais baixos de bilheteria, mas no caso desses dois filmes eles também terão valores mais baixos de elenco_tam, tam_dialogo. 
+
+Podemos entender que no geral os filmes, por estarem mais centralizados no gráfico, irão possuir valores semelhantes para tamanho do elenco, para bilheteria, para proporção de homens e para tamanho dos diálogos. Há apenas poucos casos que fogem dessa homogeneidade.
+
+> É interessante que a gente consiga quantificar quanta informação perdemos quando formos de muitas dimensões para apenas 2. PCA faz isso comparando a variância acumulada nos PCs que você usar com a variância total existente com todas as variáveis originais nos dados. 
+
+Em dados:
+
+```{r}
+tidy(pr.out, "pcs")
+```
+
+Graficamente:
+
+```{r}
+tidy(pr.out, "pcs") %>% 
+    ggplot(aes(x = PC, y = cumulative)) + 
+    geom_line() + 
+    geom_point() + 
+    labs(x = "Número de PC's", 
+         y = "Proporção cumulativa da variância\noriginal que esses PC's representam")
+```
+
+Portanto, com dois componentes principais conseguimos representar mais de 95% da informação original dos dados. As informações perdidas são poucas e portanto insuficientes para comprometer o uso de PCA para representar as quatro variáveis em apenas duas dimensões.
+
+
+Vamos utilizar o algoritmo kmeans ([leia a publicação anterior, em que agrupamos os filmes utilizando esse algortimo, caso queira saber mais](LINK) para grupar os filmes segundo essas características.
+
+```{r}
+set.seed(24)
+
+n_clusters = 3
+
+filmes_agrupados = d.scaled %>% 
+    select(-title) %>% 
+    kmeans(centers = n_clusters, nstart = 20)
+
+filmes_transformado_agrupado = filmes_agrupados %>% 
+    augment(d.scaled)
+```
+
+Encontrando os componentes:
+
+```{r error=FALSE, message=FALSE, warning=FALSE}
+filmes_pca = d.scaled %>% 
+    column_to_rownames("title") %>% 
+    prcomp(scale = FALSE) 
+```
+
+O valor dos PCs para cada ponto dos dados originais:
+
+```{r}
+tidy(filmes_pca, "samples") %>% 
+    head()
+```
+
+Visualizando:
+
+```{r}
+au <- augment(filmes_pca, data = filmes_transformado_agrupado)
+
+au %>% 
+    ggplot(aes(.fittedPC1, .fittedPC2, color = .cluster)) +
+    geom_point(size = 2, alpha = .7) +
+    scale_color_manual(name="Cluster:", values = c("3"="gray48", "1"="goldenrod3", "2"="deeppink4")) +
+    labs(x = "PC1", y = "PC2")
+```
+
+Indicando o nome dos filmes:
+
+```{r}
+set.seed(24)
+au %>%
+    ggplot(aes(.fittedPC1, .fittedPC2, color = .cluster)) +
+    geom_point(size = .2) +
+    geom_text(aes(label = title), vjust = 1, hjust = 0, size = 3) +
+    scale_color_manual(name="Cluster:", values = c("3"="gray48", "1"="goldenrod3", "2"="deeppink4")) +
+    labs(x = "PC1", y = "PC2")
+```
+
+Interativo:
+
+```{r warning=FALSE, error=FALSE, message=FALSE}
+p = au %>%
+    mutate(PC1 = .fittedPC1, PC2 = .fittedPC2) %>%
+    hchart("scatter", hcaes(x = PC1, y = PC2, group = .cluster)) %>%
+    hc_tooltip(pointFormat = "<b>{point.title}</b><br>
+             tam. elenco: {point.elenco_tam:,.2f}<br>
+             bilheteria {point.bilheteria:,.2f}<br>
+             prop. homens: {point.prop_homens:,.2f}<br>
+             tam. dialogo: {point.tam_dialogo:,.2f}")
+p
+```
+
+Identificandos os grupos, o grupo 1, **BaixaBilheteria**, é um grupo menor cuja característica comum é possuir uma bilheteria bem baixa se comparada a de outros filmes da base de dados. O grupo 2, **SessaoDaTarde**, é constituído por filmes que arriscam menos, no sentido de terem tamanho de elenco, bilheteria e tamanho dos diálogos em valores mais centrais se comparados com o restante da base de dados. O grupo 3, **Sucesso**, é constituído por filmes de alta bilheteria. Dentre esses filmes, temos os conhecidíssimos The Godfather, The Godfather II, Kramer vs Kramer, Star Trek, Star Wars, entre outros.
+
+Para finalizar, veja a distribuição de grupos orientada pelos vetores que relacionam os PC's com as variáveis discutidas.
+
+```{r error=FALSE, message=FALSE, warning=FALSE}
+p <- autoplot(filmes_pca, 
+         colour = filmes_agrupados$cluster,
+         loadings = TRUE, loadings.colour = 'darkblue',
+         loadings.label = TRUE, 
+         loadings.label.size = 3,
+         loadings.label.colour='gray41')
+p
+```
+
