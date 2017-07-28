@@ -1,0 +1,293 @@
+---
+title: "Inferencia"
+date: "25 de julho de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(chron)
+library(tidyr)
+library(xts)
+library(tibble)
+library(highcharter)
+library(resample)
+theme_set(theme_light())
+```
+
+
+## Preâmbulo
+
+Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo avaliar a popularidade de linguagens de programação no período entre 2016 e 2017 segundo dados registrados no GitHub. Essa análise serve de mote para trabalharmos conceitos de *inferência*, *intervalos de confiança*, *significância*, entre outros.
+
+Usaremos uma amostra de dados que contém informações sobre quantos usuários fizeram atividade no GitHub usando uma determinada linguagem de programação. É importante ressaltar que não temos dados de todos os repositórios nem de todos os usuários. Temos apenas uma amostra. Iremos usar técnicas de inferência para podermos fazer afirmações sobre toda a população a partir dos dados da amostra.
+
+
+## Perguntas
+
+Iremos orientar esta análise segundo as seguintes perguntas:
+
+- Para uma determinada linguagem, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
+
+ - Comparandao duas linguagens, existe uma diferença significativa entre elas na sua variação de popularidade nos finais de semana?
+ 
+ 
+## Conhecendos os dados
+
+Vamos importar as bibliotecas que serão necessárias para a manipulação dos dados. 
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+dados = read.csv("github-users-committing-filetypes.csv")
+```
+
+Vamos ver quais são as linguagens de programação disponíveis para serem analisadas e vamos escolher duas para trabalharmos.
+
+```{r}
+unique(dados$file_extension) %>%
+  sort()
+```
+
+Selecionaremos, dentre esse conjunto diverso, as linguagens **Python** e **Ruby**.
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+dados = dados %>% filter(file_extension == "rb" | file_extension == "py")
+```
+
+Nossos dados atualmente têm a seguinte estrutura:
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+head(dados)
+```
+
+Cada observação contém a linguagem de programação (file_extension, que propriamente dito é a extensão do arquivo modificado no GitHub, mas, a partir dela, podemos mapear para a linguagem de programação em questão), quantos usuários fizeram atividade nessa linguagem (users) e o dia do mês (month_day), o mês (the_month) e o ano (the_year) em que ocorreram as modificações.
+
+Vamos obter, para cada observação, o dia da semana (ex: sábado) em que ocorreram as modificações. Isso vai nos ajudar a trabalhar com maior facilidade. 
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+dados = dados %>% mutate(full_date = paste(month_day, the_month, the_year, sep = '-'))
+dados = dados %>% mutate(week_day= weekdays(as.Date(full_date,'%d-%m-%Y')))
+```
+
+Para entender melhor como foi a movimentação no github para essas linguagens, vamos visualizar quantos usuários fizeram movimentação por mês. 
+Primeiro, vamos calcular o número de usuários que programaram para uma determinada linguagem em um mês-ano específico.
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+dados = dados %>% group_by(file_extension, the_year, the_month) %>% mutate(users_month = sum(users))
+```
+
+Visualizando a "linha do tempo" para as linguagens:
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+max = max(dados$users_month) + 10000
+min = min(dados$users_month) - 1000
+
+timeline.py = dados %>% 
+  filter(file_extension == 'py') %>%
+  ggplot(aes(x = the_month, y = users_month, colour = as.factor(the_year))) + 
+  geom_point() +
+  geom_line() +  
+  scale_x_continuous(breaks=c(1:12)) + 
+  scale_color_manual(values=c("deeppink", "darkblue")) +
+  ylim(min, max) +
+  labs(title = "Edições por Mês (Python)", x = "Mês" , y= "Número de usuários\nque fizeram edições", colour="Ano")
+
+timeline.rb = dados %>% 
+  filter(file_extension == 'rb') %>%
+  ggplot(aes(x = the_month, y = users_month, colour = as.factor(the_year))) + 
+  geom_point() +
+  geom_line() +  
+  scale_x_continuous(breaks=c(1:12)) + 
+  scale_color_manual(values=c("gold3", "darkgrey")) +
+  ylim(min, max) +
+  labs(title = "Edições por Mês (Ruby)", x = "Mês" , y= "Número de usuários\nque fizeram edições", colour="Ano")
+
+require("gridExtra")
+grid.arrange(timeline.py, timeline.rb)
+```
+
+Para essa amostra, portanto, conseguimos observar algumas coisas interessantes. Primeiro, Python parece ser mais popular que Ruby. Contudo, ambas as linguagens não tiveram muita variação de popularidade entre janeiro de 2016 e março de 2017. Mantiveram-se regulares.
+
+<br>
+
+## Para cada uma dessas linguagens, há uma diferença significativa na sua popularidade durante a semana e durante o fim de semana? Essa diferença é grande?
+
+Vamos agora responder as nossas perguntas.
+
+Antes de tudo, vamos incluir nos nossos dados a informaçaõ de quando uma determinada movimentação no github foi realizada durante o fim de semana ou não.
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+# Função que, dado um dia da semana, retorna se ele participa do final de semana ou não.
+
+is_weekend = function(dia) {
+
+  anw = ifelse(dia == "sexta", TRUE,
+               ifelse(dia == "sábado", TRUE,
+                      ifelse(dia == "domingo", TRUE, FALSE)))
+
+  return(anw)
+}
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+experiment = dados %>%
+  filter(file_extension == "py") %>%
+  mutate(fds = is_weekend(week_day))
+```
+
+Vamos primeiro analisar o caso da linguagem Python. Com o gráfico abaixo, vamos identificar o comportamento dessa linguagem diferenciando entre dias que compõe o final de semana (sexta, sábado e domingo) e o restante dos dias.
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+dados.py <- dados %>%
+  filter(file_extension == "py") %>%
+  mutate(fds = is_weekend(week_day))
+
+dados.py %>%
+  ggplot(aes(x = fds, y = users)) +
+  geom_jitter(width = .1, color = "deeppink", alpha=0.6) +
+  labs(title = "Atividade de usuários Python", x = "Fim de semana", y = "Usuários") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Cada ponto é um dia em que houve atividade no GitHub para a linguagem Python. Esse dia pode ter sido no final de semana ou não. Vemos que há uma concentração de dias que não são finais de semana e em que houve um número alto de usuários que programaram em Python. Em contrapartida, há uma concentração de dias que são do final de semana e em que houve um número mais baixo de usuários. Isso nos sugere que Python é mais popular em dias de semana do que em finais de semana.
+
+Como estamos trabalhando apenas com uma amostra, essa visualização não é suficiente para responder com confiança se python é mais popular no final de semana ou não. Usaremos uma técnica de inferência chamada bootstrap para coletar informações da amostra  e criar um panorama onde nossas conclusões tenham cerca de 95% de confiança.
+
+Em linha gerais, a técnica bootstrap funciona da seguinte maneira:
+  1. Reescreve um conjunto de dados do mesmo tamanho da amostra original n vezes. 
+  2. Calcula a estatísca para cada amostra gerada;
+  3. Encontra o desvio padrão desta estatística;
+  
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+# Mediana dos grupos separados
+
+b1 = experiment %>% 
+  filter(fds == TRUE) %>%
+  bootstrap(median(users))
+
+median.py.fds = b1 %>% 
+  CI.percentile(probs = c(.025, .975))
+
+b2 = experiment %>% 
+  filter(fds != TRUE) %>%
+  bootstrap(median(users))
+
+median.py.naofds = b2 %>% 
+  CI.percentile(probs = c(.025, .975))
+
+df.medias = data.frame(rbind(median.py.fds, median.py.naofds))
+df.medias$medida = c("fds", "dia de semana")
+
+df.medias %>% 
+  ggplot(aes(x=medida, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2, color="deeppink") + 
+  geom_hline(yintercept = 0, colour = "darkblue")
+```
+
+Vemos que os intervalos para dia de semana e final de semana não se interceptam. Além disso, para dia da semana, o intervalo atineg valores mais altos. Isso nos leva a concluir que Python é significatvivamente mais popular durante os dias da semana.
+
+Vamos agora ver a diferença para as medianas entre os dois grupos (final de semana ou não).
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+# Diferença das medianas:
+
+n_replications = 10000
+
+median.py = bootstrap2(data=dados.py$users, treatment=dados.py$fds, statistic=median, R=n_replications) %>%
+  CI.percentile(probs=c(.025, .975)) # c(0.025, 0.975) gives a 95% two-sided interval
+
+data.frame(median.py) %>% 
+  ggplot() + 
+  geom_errorbar(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.), width = .2, color="deeppink") + 
+  geom_hline(yintercept = 0, colour = "darkblue")
+```
+
+De acordo com este gráfico, como o intervalo de confiança é positivo e alto, podemos afirmar que a diferença de popularidade para Python entre os dias de semana e os finais de semana é significante.
+
+Agora vamos analisar para a linguagem Ruby. 
+
+Visualizando seu comportamento:
+
+```{r}
+dados.rb = dados %>%
+  filter(file_extension == "rb") %>%
+  mutate(fds = is_weekend(week_day))
+
+dados.rb %>%
+  ggplot(aes(x = fds, y = users)) +
+  geom_jitter(width = .1, color = "gold3", alpha = 0.6) +
+  labs(title = "Atividade de usuários Ruby", x = "Fim de semana", y = "Usuários") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+De acordo com o gráfico, aparentemente não há grande diferença de popularidade entre dias de semana e finais de semana. Contudo, vemos alguma concentração de um número maior de usuários quando é dia de semana e uma concentraçao menor de menos usuários quando é final de semana. Aqui também vamos usar bootstrap para investigar melhor.
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+experiment = dados %>%
+  filter(file_extension == "rb") %>%
+  mutate(fds = is_weekend(week_day))
+
+# Médias dos grupos separados
+b1 = experiment %>% 
+  filter(fds == TRUE) %>%
+  bootstrap(median(users))
+
+median.rb.fds = b1 %>% 
+  CI.percentile(probs = c(.025, .975))
+
+b2 = experiment %>% 
+  filter(fds != TRUE) %>%
+  bootstrap(median(users))
+
+median.rb.naofds = b2 %>% 
+  CI.percentile(probs = c(.025, .975))
+
+df.medias = data.frame(rbind(median.rb.fds, median.py.naofds))
+df.medias$medida = c("fds", "dia de semana")
+
+df.medias %>% 
+  ggplot(aes(x=medida, ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2, color="gold3") + 
+  geom_hline(yintercept = 0, colour = "grey")
+```
+
+Aqui vemos o mesmo caos que Python. Os intervalos para dia de semana e final de semana não se interceptam. Além disso, para dia da semana, o intervalo atineg valores mais altos. Isso nos leva a concluir também que Ruby é significatvivamente mais popular durante os dias da semana.
+
+Vendo de outro modo, também vamos ver a diferença para as medianas entre os dois grupos (final de semana ou não).
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+n_replications = 10000
+
+median.rb = bootstrap2(data=dados.rb$users, treatment=dados.rb$fds, statistic=median, R=n_replications)
+median.rb.ci = CI.percentile(median.rb, probs=c(.025, .975))
+
+data.frame(median.rb.ci) %>% 
+  ggplot() + 
+  geom_errorbar(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.), width = .2, color="gold3") + 
+  geom_hline(yintercept = 0, colour = "darkgrey")
+```
+
+O intervalo de confiança é positivo e alto. Igualmente podemos afirmar que a diferença de popularidade para Ruby entre os dias de semana e os finais de semana é significante.
+
+## Existe uma diferença significativa entre as duas linguagens na sua variação de popularidade nos finais de semana?
+
+Respondendo a nossa segunda pergunta.
+Estaremos comparando a popularidade, nos fins de semana, entre as duas lingaugens, para verificar qual delas tem maior variação.
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+mean.diff.ci = bootstrap2(data = (dados.py %>% filter(fds == TRUE))$users, 
+                        data2 = (dados.rb %>% filter(fds == TRUE))$users,
+                        sd) %>%
+  CI.percentile(probs = c(.025, .975))
+
+data.frame(mean.diff.ci) %>% 
+  ggplot(aes(x = "Diferença", ymin = X2.5., ymax = X97.5.)) + 
+  geom_errorbar(width = .2, colour="darkmagenta") + 
+  geom_hline(yintercept = 0, colour="gold3")
+```
+
+Como o intervalo é positivo e alto, podemos afirmar que há uma diferença significativa na popularidade de Python e Ruby entre os programadores nos fins de semana.
