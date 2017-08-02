@@ -1,0 +1,146 @@
+---
+title: "Teste de Hipótese"
+author: "Italo"
+date: "1 de agosto de 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+#library(chron)
+library(tidyverse)
+library(xts)
+#library(tibble)
+#library(highcharter)
+library(resample)
+theme_set(theme_light())
+```
+
+
+## Preâmbulo
+
+Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo avaliar a popularidade de linguagens de programação no período entre 2016 e 2017 segundo dados registrados no GitHub. Essa análise serve de mote para trabalharmos conceitos de *inferência*, *intervalos de confiança*, *significância*, entre outros. Este trabalho também é a continuação do [ssss](trabalho anterior), em que trabalhos com a mesma amostra.
+
+A amostra contém informações sobre quantos usuários fizeram atividade no GitHub usando uma determinada linguagem de programação. É importante ressaltar que não temos dados de todos os repositórios nem de todos os usuários. Temos apenas uma amostra. Iremos usar técnicas de inferência para podermos fazer afirmações sobre toda a população a partir dos dados da amostra.
+
+
+## Perguntas
+
+Iremos orientar esta análise segundo as seguintes perguntas:
+
+- Quais a linguagens mais populares nas férias?
+- Em qual época do ano o número de commits possuem maior variância?
+- A linguagem mais popular, é mais popular no sábado ou no domingo?
+- Quais linguagens possuem mais variação de popularidade?
+- Em que dia da semana as pessoa mais programam?
+- Existe alguma linguagem cuja popularidade no final de semana é maior que durante a semana?
+
+```{r echo=FALSE, nclude=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+dados = read.csv("github-users-committing-filetypes.csv")
+dados = dados %>% mutate(full_date = paste(month_day, the_month, the_year, sep = '-'))
+dados = dados %>% mutate(week_day= weekdays(as.Date(full_date,'%d-%m-%Y')))
+```
+
+Como já conhecemetos a distribuição dos dados, por causa da análise anterior (você pode conferir a sessão *conhecendo os dados* clicando [aqui](aaa)).
+Apenas para ter uma visualização da amostra:
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+head(dados)
+```
+
+```{r}
+dados%>%
+  ggplot(aes(y = file_extension, x = users)) +
+  geom_jitter(width = .1, color = "deeppink", alpha=0.6) +
+  labs(title = "Atividade de usuários Python", x = "Fim de semana", y = "Usuários") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Vamos às nossas perguntas!
+
+# Em qual época do ano o número de commits possuem maior variância?
+
+Para responder a essa pergunta, vamos dividir os dados entre os anos de 2016 e 2017 e trabalhar apenas com os dados de 2016.
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+dados.2016 = dados %>% filter(the_year == 2016)
+dados.2017 = dados %>% filter(the_year == 2017)
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+months = c(1:12)
+experiment = data.frame()
+
+for(m in months){
+  b = bootstrap(subset(dados.2016, the_month==m) , sd(users))
+  month.sd = CI.percentile(b, probs = c(.025, .975))
+  names(month.sd) = c('X2.5', 'X97.5')
+  month.sd$month = m
+  experiment = data.frame(rbind(experiment, data.frame(month.sd)))
+}
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+experiment %>% 
+  ggplot(aes(x=month, ymin=X2.5, ymax=X97.5)) + 
+  geom_errorbar(width = .2) + 
+  labs(x="Mês", y="Intervalo de confiança") +
+  scale_x_discrete(limits=c('jan', 'fev', 'mar', 'abril', 'maio', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'))
+  # + geom_hline(yintercept = 0, colour = "darkblue")
+```
+
+Vemos que há algumas sobreposições de intervalos. Contudo, no geral as sobreposições estão divididas. A primeira metade do ano possui intervalos que se sobrepoem entre si. A segunda metade possui intervalos que se sobrepoem entre si. Ainda, os meses de fevereiro a abril possuem intervalos que quase em nada se sobrepoen aos meses julho, agosto e setembro. 
+Pensando nesse sentido, vemos que fevereiro parece ser a época do ano que possui maior variância, visto que seu intervalo quase não se sobrepoe ao de nenhum outro mês da segundo metade do ano. E no geral, os primeiros meses do ano podem ter maior variância.
+
+## E qual trimestre do ano com o maior número de commits?
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+parte_do_ano = function(p) {
+  anw = ifelse(p <= 3, 1, 
+               ifelse(p <= 6, 2,
+                      ifelse(p <= 9, 3, 4)
+               )
+        )
+  return(anw)
+}
+dados.2016$parte_do_ano = parte_do_ano(dados.2016$the_month)
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+experiment2 = data.frame()
+
+for(p in c(1:4)) {
+  b = bootstrap(subset(dados.2016, parte_do_ano==p) , median(users))
+  parte.md = CI.percentile(b, probs = c(.025, .975))
+  names(parte.md) = c('X2.5', 'X97.5') 
+  parte.md$trimestre = p
+  experiment2 = data.frame(rbind(experiment2, data.frame(parte.md)))
+}
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+experiment2 %>% 
+  ggplot(aes(x=trimestre, ymin=X2.5, ymax=X97.5)) + 
+  geom_errorbar(width = .2) + 
+  labs(x="Trimestre", y="Intervalo de confiança") +
+  scale_x_discrete(limits=c('jan-mar', 'abril-jun', 'jul-set', 'out-dez'))
+  # + geom_hline(yintercept = 0, colour = "darkblue")
+```
+
+Aqui também temos alguns intervalos que se sobrepõem, mas com trechos de sobreposição menores. O primeiro trimestre tem um intervalo que em sua quase totalidade não se sobrepõe ao segundo e ao terceiro trimestre, e em nada se sobreprõe ao último trimestre. Desse modo, concluímos que os primeiros meses do ano (de janeiro a março) são os de maior movimentação no GitHub.
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+languages = unique(dados.2016$file_extension)
+```
+
+
+
+dados.2016.ferias = dados.2016 %>% filter(the_month %in% c(1,6,7))
+dados.2017.ferias = dados.2017 %>% filter(the_month %in% c(1,6,7))
+
+# Em qual mês do ano há maior movimentação no github?
+
+
