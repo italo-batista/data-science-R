@@ -1,0 +1,139 @@
+---
+title: "Teste de Hipótese"
+date: "7 de agosto de 2017"
+output:
+  html_document:
+    toc: true
+    theme: journal
+    toc_depth: 6
+    toc_float:
+      collapsed: false
+theme: united
+highlight: tango
+css: styles.css
+---
+
+```{r setup, include=FALSE, warning=FALSE, error=FALSE, message=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+library(tidyverse)
+library(xts)
+library(resample)
+library(plotly)
+library(coin)
+library(gmodels)
+library(vcd)
+theme_set(theme_light())
+```
+
+# Preâmbulo
+
+Esta análise, realizada no contexto da disciplina Análise de Dados 1 (Computação @ UFCG), tem por objetivo avaliar a popularidade de linguagens de programação no período entre 2016 e 2017 segundo dados registrados no GitHub. Essa análise serve de mote para trabalharmos conceitos de *inferência*, *teste de hipótese*, *p-valor*, entre outros. 
+
+Nesta análise, iremos responder a uma pergunta já desenvolvida na análise anterior. Mas agora iremos utilizar *teste de hipótese* e não intervalo de confiança para respondê-la.
+
+A amostra contém informações sobre quantos usuários fizeram atividade no GitHub usando uma determinada linguagem de programação. É importante ressaltar que não temos dados de todos os repositórios nem de todos os usuários. Temos apenas uma amostra. Iremos usar técnicas de inferência para podermos fazer afirmações sobre toda a população a partir dos dados da amostra.
+
+
+# Pergunta
+
+Iremos usar a seguinte pergunta:
+
+- Qual trimestre do ano com a maior movimentação no github?
+
+## Lendo os dados:
+
+```{r include=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+dados = read.csv("github-users-committing-filetypes.csv")
+dados = dados %>% mutate(full_date = paste(month_day, the_month, the_year, sep = '-'))
+dados = dados %>% mutate(week_day= weekdays(as.Date(full_date,'%d-%m-%Y')))
+```
+
+Apenas para ter uma ideia da amostra:
+
+```{r message=FALSE, error=FALSE, warning=FALSE}
+head(dados)
+```
+
+(Reveja o checkpoint anterior para ver mais detalhes da distribuição dos dado).
+
+Na análise anterior, haviamos chegado à conclusão de que o primeito trismestre do ano era o de maior movimentação no Github. Iremos, então, nesta análise, comparar o primeiro trismetre com os três restantes, a fim de verificar se nele a movimentação é maior do que nos outros.
+
+## Teste de Hipótese
+
+A técnica para inferência que aqui será utilizada é conhecida como Teste de Hipótese e é bastante conhecida no mundo acadêmico / científico.
+Para relembrar, na inferência nós fazemos suposições sobre o que não conhecemos	e quantificamos o grau de certeza desta suposição. No fim das contas, tentamos concluir algo sobre uma população a partir de uma amostra desta população. No nosso caso, utilizamos os dados do GitHub (plataforma muito usada por programadores para controlar versões de seus projetos) de 2016 para concluir algo sobre o comportamento dos programadores no GitHub no geral (as pessoas programas mais no primeiro trimestre do ano).
+No teste de Hipótese, uma técnica de inferência (outra que já conhecemos é a Intervalo de Confiança), nós definimos uma hipótese de interesse em que concluiomos algo sobre a população a partir da amostra. A partir dessa hipótese, definimos uma hipótese nula, que é a negativa de nossa hipótese de interesse. 
+
+- Hipótese nula (H0): o teste avalia evidência contra nossa hipótese (o termo 'nulo' carrega o sentido de 'não há diferença').
+- Hipótese alternativa (H1): no que acreditamos e queremos confirmar.
+
+Realizamos um experimento repetidas vezes num *mundo aleatório* (dados aleatórios de nossa amostra). O objetivo disso é tentar gerar uma situação em que não há associações entre as amostras de cada experimento repetido. Então calculamos quantas vezes há associações no mundo aleatório, para representar quantas vezes estas associações são mais fortes do que o efeito no mundo não aleatório, em que há associação. 
+Recapitulando, queremos provar a associação, a nossa hipótese alternativa (H1). Então realizamos experimentos em um mundo aleatório e verificamos quantas vezes ocorre associações nesse mundo aleatório. 
+Como produto do Teste de Hipótese, temos o P-valor. Quando realizamos o teste (repetir o experimento várias vezes), uma estatística é calculada. O p-valor é a probabilidade de obter esse valor para a estatística ou valores mais extremos. Em outras palavras, o p-valor é a probabilidade da estatística computada no teste ser obtida assumindo que a hipótese nula é verdadeira. Se frequentemente são gerados efeitos maiores no mundo aleatório, então a hipótese nula é provavelmente verdadeira. 
+Se a probabilidade de obter esse valor para a estatística é muito baixo (menor que o nível de significância do teste), é uma evidência que a hipótese nula deve ser rejeitada. Ou seja, quanto menor o p-valor, maior a evidência contra a hipótese nula. A hipótese nula é improvável quando o efeito do mundo aleatório não repete o mundo em que há associação. Noutras palavras, quanto menor p valor, maior a probabilidade do experimento que eu quero confirmar acontecer.
+
+Resumidamente, o teste de hipótese envolve:
+- Formulamos hipóteses nula e alternativa.
+- Realizamos experimentos.
+- Escolhemos um teste estatístico e definimos um nível de significância.
+- Computamos a estatística e identificamos o p-valor.
+- Comparamos o p-valor com o nível de significância.
+  
+O teste de hipótese só pode ou rejeitar a hipótese nula ou não rejeitá-la. Nesse segundo caso, contudo, não estamos provando que a hipótese nula é verdadeira. Apenas não encontramos evidência suficientes para rejeitá-la.
+
+No nosso caso:
+H0: não há diferença de movimentação entre o primeito trismetre e o i-trimestre (i variando de 2 a 4).
+H1: há diferença considerável de movimentação entre o primeito trismetre e o i-trimestre (i variando de 2 a 4).
+
+## Qual trimestre do ano com maior movimentação no github?
+
+Vamos usar os dados entre os anos apenas do ano 2016.
+
+```{r message=FALSE, error=FALSE, warning=FALSE}
+
+dados.2016 = dados %>% filter(the_year == 2016)
+
+trimestre = function(p) {
+  anw = ifelse(p <= 3, 1, 
+               ifelse(p > 3 & p <= 6, 2,
+                      ifelse(p > 6 & p <= 9, 3, 4)
+               )
+        )
+  return(anw)
+}
+
+dados.2016$trimestre = trimestre(dados.2016$the_month)
+
+dados.2016.trim_1 = dados.2016 %>% filter(trimestre == 1)
+dados.2016.trim_2 = dados.2016 %>% filter(trimestre == 2)
+dados.2016.trim_3 = dados.2016 %>% filter(trimestre == 3)
+dados.2016.trim_4 = dados.2016 %>% filter(trimestre == 4)
+```
+
+```{r message=FALSE, error=FALSE, warning=FALSE}
+experiment1_2 = permutationTest2(data=dados.2016.trim_1, statistic=median(users), data2=dados.2016.trim_2)
+experiment1_3 = permutationTest2(data=dados.2016.trim_1, statistic=median(users), data2=dados.2016.trim_3)
+experiment1_4 = permutationTest2(data=dados.2016.trim_1, statistic=median(users), data2=dados.2016.trim_4)
+```
+
+```{r message=FALSE, error=FALSE, warning=FALSE}
+experiment1_2$stats %>% t()
+```
+
+```{r message=FALSE, error=FALSE, warning=FALSE}
+experiment1_3$stats %>% t()
+```
+
+```{r message=FALSE, error=FALSE, warning=FALSE}
+experiment1_4$stats %>% t()
+```
+
+Como p-valor deu baixo em todas as três situações, então no meu mundo aleatório p-valor * 100 por cento das vezes não ocorre o que eu quero atestar com a hipótese nula. Como esse valor é menor que o grau de confiança (< 0.05), eu rejeito a hipótese nula. Nesse sentido, não temos evidências suficientes para dizer que a não há diferência muito grante entre a movimentação do primeiro trimestre e alguns dos outros três. (Relembre nossa hipóteses H0 e H1). Nesse sentido, é provável (ou é estatisticamente considerável) que a diferença entre o primeiro trimestre do ano e o outros seja alta/significativa.
+
+
+```{r}
+#como p-valor é maior que o grau de confiança, então não podemos rejeitar hipótese nula. nesse sentido, é provável que a diferença entre os período do mes não seja alta/significativa(?).
+```
