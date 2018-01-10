@@ -26,6 +26,10 @@ hh_book_words = hh_poetry %>%
   count(LIVRO, word, sort = TRUE) %>%
   ungroup()
 
+stopwords = stopwords("pt")
+hh_book_words = hh_book_words %>%
+  filter(! word %in% stopwords)
+
 hh_total_words = hh_book_words %>% group_by(LIVRO) %>% summarize(total = sum(n))
 hh_book_words <- left_join(hh_book_words, hh_total_words)
 
@@ -34,6 +38,21 @@ hh_book_words = hh_book_words %>%
   select(-total) %>%
   arrange(desc(tf_idf)) 
 
+
+library(ptstem)
+
+hh_book_stem = hh_book_words %>%
+  mutate(stem = ptstem(word, complete = FALSE)) %>%
+  count(LIVRO, stem, sort = TRUE) %>%
+  ungroup()
+
+hh_total_stem = hh_book_stem %>% group_by(LIVRO) %>% summarize(total = sum(nn))
+hh_book_stem <- left_join(hh_book_stem, hh_total_stem)
+
+hh_book_stem = hh_book_stem %>%
+  bind_tf_idf(stem, LIVRO, nn) %>%
+  select(-total) %>%
+  arrange(desc(tf_idf)) 
 
 library(ggstance)
 library(ggthemes)
@@ -44,12 +63,30 @@ library(viridis)
 hh_book_words %>%
   arrange(desc(tf_idf)) %>%
   mutate(word = factor(word, levels = rev(unique(word)))) %>%
-  top_n(20, tf_idf) %>%
+  top_n(25, tf_idf) %>%
   ggplot(aes(tf_idf, word, alpha = tf_idf)) +
-  geom_barh(stat = "identity", fill = "#660000") +
+  geom_barh(stat = "identity", fill = "#64007D") +
+  geom_text(stat = "identity", size = 2.3, color = "white", alpha = 1, hjust = 1, 
+            fontface = "bold", aes(label=LIVRO)) +
   labs(title = "Palavras mais relevantes na obra poética de Hilda Hilst",
        y = NULL, x = "tf-idf") +
-  theme_tufte(base_family = "Arial", base_size = 15, ticks = FALSE) +
+  theme_tufte(base_family = "Arial", base_size = 13, ticks = FALSE) +
+  scale_alpha_continuous(range = c(0.5, 1), guide = FALSE) +  
+  scale_x_continuous(expand=c(0,0)) +
+  theme(legend.position="none")
+
+hh_book_stem %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(stem = factor(stem, levels = rev(unique(stem)))) %>%
+  top_n(31, tf_idf) %>%
+  ggplot(aes(tf_idf, stem, alpha = tf_idf)) +
+  geom_barh(stat = "identity", fill = "#EE7F01") +
+  geom_text(stat = "identity", size = 2.3, color = "white", alpha = 1, hjust = 1, 
+            fontface = "bold", aes(label=LIVRO)) +
+  labs(title = "Palavras mais relevantes na obra poética de Hilda Hilst",
+       subtitle = "Com stemming",
+       y = NULL, x = "tf-idf") +
+  theme_tufte(base_family = "Arial", base_size = 13, ticks = FALSE) +
   scale_alpha_continuous(range = c(0.5, 1), guide = FALSE) +  
   scale_x_continuous(expand=c(0,0)) +
   theme(legend.position="none")
