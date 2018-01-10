@@ -49,7 +49,7 @@ ggplot(hh_sentiment, aes(index, sentiment, fill = as.factor(DECADA))) +
   scale_x_continuous(expand=c(0,0)) +
   #scale_fill_manual(values=wes_palette(n=5, name="Rushmore")) +
   #scale_fill_brewer(palette="RdBu") +
-  scale_fill_manual(values=c("#9F0909", "#51B5EF", "#72CD87", "#FFD492", "#2077B9")) +
+  scale_fill_manual(values=c("#660066", "#5E80C3", "#009999", "#13CD70", "#84FD9C")) +
   theme(legend.position="none") + theme_bw()
 
 # Palavras positivas e negativas mais comuns

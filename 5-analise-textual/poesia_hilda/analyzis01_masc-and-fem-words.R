@@ -64,8 +64,7 @@ word_ratios %>%
     labs(x = NULL, 
          y = "Quantidade de vezes que uma dada palavra aparece ao redor de \nsujeitos femininos em comparação com sujeitos masculinos",
          title = "Palavras ao redor de sujeitos masculinos e femininos \nna obra poética de Hilda Hilst") +
-    scale_color_manual(values=c("#FF6600", "#4F0C68"), name = "", c("Sujeitos femininos", "Sujeitos masculinos")) +
+    scale_color_manual(values=c("#FF6600", "#4F0C68"), name = "", labels = c("Sujeitos femininos", "Sujeitos masculinos")) +
     scale_y_continuous(breaks = seq(-3, 3),
                        labels = c("0.125x", "0.25x", "0.5x", 
-                                  "Same", "2x", "4x", "8x"))
-
+                                  "Igual", "2x", "4x", "8x")) 

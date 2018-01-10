@@ -38,22 +38,6 @@ hh_book_words = hh_book_words %>%
   select(-total) %>%
   arrange(desc(tf_idf)) 
 
-
-library(ptstem)
-
-hh_book_stem = hh_book_words %>%
-  mutate(stem = ptstem(word, complete = FALSE)) %>%
-  count(LIVRO, stem, sort = TRUE) %>%
-  ungroup()
-
-hh_total_stem = hh_book_stem %>% group_by(LIVRO) %>% summarize(total = sum(nn))
-hh_book_stem <- left_join(hh_book_stem, hh_total_stem)
-
-hh_book_stem = hh_book_stem %>%
-  bind_tf_idf(stem, LIVRO, nn) %>%
-  select(-total) %>%
-  arrange(desc(tf_idf)) 
-
 library(ggstance)
 library(ggthemes)
 library(viridis)
@@ -75,10 +59,33 @@ hh_book_words %>%
   scale_x_continuous(expand=c(0,0)) +
   theme(legend.position="none")
 
+
+library(ptstem)
+
+livros_pequenos = books %>% filter(QNT_PALAVRAS < 500) %>% select(LIVRO)
+
+hh_book_stem = hh_book_words %>%
+  mutate(stem = ptstem(word)) %>%
+  count(LIVRO, stem, sort = TRUE) %>%
+  ungroup()
+
+hh_total_stem = hh_book_stem %>% group_by(LIVRO) %>% summarize(total = sum(nn))
+hh_book_stem <- left_join(hh_book_stem, hh_total_stem)
+
+hh_book_stem = hh_book_stem %>%
+  bind_tf_idf(stem, LIVRO, nn) %>%
+  select(-total) %>%
+  arrange(desc(tf_idf)) 
+
+hh_book_stem = hh_book_stem %>% 
+  filter(! LIVRO %in% livros_pequenos$LIVRO)
+
+hh_book_stem = hh_book_stem[ ! duplicated(hh_book_stem[, c('stem')]), ]
+
 hh_book_stem %>%
   arrange(desc(tf_idf)) %>%
   mutate(stem = factor(stem, levels = rev(unique(stem)))) %>%
-  top_n(31, tf_idf) %>%
+  top_n(26, tf_idf) %>%
   ggplot(aes(tf_idf, stem, alpha = tf_idf)) +
   geom_barh(stat = "identity", fill = "#EE7F01") +
   geom_text(stat = "identity", size = 2.3, color = "white", alpha = 1, hjust = 1, 
@@ -91,11 +98,12 @@ hh_book_stem %>%
   scale_x_continuous(expand=c(0,0)) +
   theme(legend.position="none")
 
+
 # Palavras mais relevantes em obras específicas
 
 filtered = c("POEMAS MALDITOS GOZOSOS E DEVOTOS",
              "DA MORTE. ODES MíNIMAS",
-             "À TUA FRENTE. EM VAIDADE.",
+             "DO DESEJO",
              "AMAVISSE",
              "EXERCÍCIOS PARA UMA IDÉIA" ,
              "ODE DESCONTÍNUA E REMOTA PARA FLAUTA E OBOÉ. DE ARIANA PARA DIONÍSIO.", 
@@ -130,7 +138,7 @@ hh_book_words %>%
   labs(title = "Palavras mais relevantes em alguns livros de poesia de Hilda Hilst",
        y = NULL, x = "tf-idf") +
   facet_wrap(~LIVRO, ncol = 2, scales = "free") +
-  theme_tufte(base_family = "Arial", base_size = 12, ticks = FALSE) +
+  theme_tufte(base_family = "Arial", base_size = 15, ticks = FALSE) +
   scale_alpha_continuous(range = c(0.6, 1)) +
   scale_x_continuous(expand=c(0,0)) +
   scale_fill_viridis(end = 0.85, discrete=TRUE) +
