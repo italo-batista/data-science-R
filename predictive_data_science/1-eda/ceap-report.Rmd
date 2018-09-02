@@ -101,9 +101,9 @@ data.ceap.month  = left_join(data.ceap.month, limit.ceap, by=c("sgUF"="UF"))
 ranking.expenditures = data.ceap %>%
   filter(valorLíquido > 0) %>%
   group_by(nomeParlamentar) %>%
-  summarise(gastoTotal = sum(valorLíquido)) %>%
+  summarise(totalExpenditure = sum(valorLíquido)) %>%
   ungroup() %>%
-  arrange(gastoTotal)
+  arrange(totalExpenditure)
 
 top.spenders = ranking.expenditures %>%
   top_n(10) %>%
@@ -136,14 +136,36 @@ ranking.expenditures %>%
   scale_color_manual(labels = c("10+ Econômicos", "10+ Gastadores"), values=c("#FF6600", "#4F0C68")) +
   
   labs(title="Deputados que mais e menos gastam o auxílio da CEAP", 
-       x ="Gasto total", 
-       y = "Nome do Parlamentar") +
+       y ="Gasto total", 
+       x = "Nome do Parlamentar") +
   theme(plot.title = element_text(hjust = -1.5),
         legend.title = element_blank(), legend.position = "top")
 ```
 
+## 2. Quais os estados cujos deputados gastam mais no exterior? Quais os estados cujos deputados gastam menos no exterior? (7,5 pts)
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-summary(ranking.expenses)
+require(scales)
+SPENT_ABROAD = 2
+data.ceap.aggr.uf = data.ceap %>%
+  filter(tipoDocumento == SPENT_ABROAD) %>%
+  group_by(sgUF) %>%
+  summarise(totalExpenditure = sum(valorLíquido)) %>%
+  ungroup()
+
+data.ceap.aggr.uf %>%
+  mutate(sgUF = reorder(sgUF,totalExpenditure)) %>%
+  ggplot(aes(sgUF, totalExpenditure, color = totalExpenditure > 0)) +
+  geom_segment(aes(x = sgUF, xend = sgUF, y = 0, yend = totalExpenditure), size = 1.1, alpha = 0.6) +
+  geom_point(size = 3.5) +
+  coord_flip() +
+  
+  scale_color_manual(values=c("#AD1457"), name = "") +
+  scale_y_continuous(label = unit_format(unit = "k", scale = 1e-3)) + 
+  labs(title="Federation unities whose congressmen more and less spent abroad", 
+       x ="Federation Unity", y = "Total Expenditure (R$)") +
+  theme(legend.position = "NA")
+  
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
