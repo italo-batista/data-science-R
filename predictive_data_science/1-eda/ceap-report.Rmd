@@ -80,7 +80,7 @@ data.ceap.month = data.ceap %>%
   mutate(month = month(dataEmissao),
          year = year(dataEmissao)) %>%
   group_by(month, year, nomeParlamentar, sgUF) %>%
-  summarise(totalSpethMonth = sum(valorLíquido)) %>%
+  summarise(totalExpenditureMonth = sum(valorLíquido)) %>%
   ungroup()
 ```
 
@@ -98,31 +98,31 @@ data.ceap.month  = left_join(data.ceap.month, limit.ceap, by=c("sgUF"="UF"))
 ## 1. Quais são os deputados que gastaram mais dinheiro da CEAP? Quais são os mais econômicos? (7,5 pts)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-ranking.expenses = data.ceap %>%
-  #filter(valorLíquido > 0) %>%
+ranking.expenditures = data.ceap %>%
+  filter(valorLíquido > 0) %>%
   group_by(nomeParlamentar) %>%
   summarise(gastoTotal = sum(valorLíquido)) %>%
   ungroup() %>%
   arrange(gastoTotal)
 
-top.spenders = ranking.expenses %>%
+top.spenders = ranking.expenditures %>%
   top_n(10) %>%
   mutate(expenses_gat = "Spender")
 
-top.economicals = ranking.expenses %>%
+top.economicals = ranking.expenditures %>%
   top_n(-10) %>%
   mutate(expenses_gat = "Economical")
 
-ranking.expenses = rbind(top.spenders, top.economicals)
+ranking.expenditures = rbind(top.spenders, top.economicals)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-expense.min = min(ranking.expenses$gastoTotal)
-expense.max = max(ranking.expenses$gastoTotal)
+expense.min = min(ranking.expenditures$gastoTotal)
+expense.max = max(ranking.expenditures$gastoTotal)
 
-m_breaks = ranking.expenses %>% select(gastoTotal) %>% distinct()
+m_breaks = ranking.expenditures %>% select(gastoTotal) %>% distinct()
 
-ranking.expenses %>%
+ranking.expenditures %>%
   mutate(nomeParlamentar = reorder(nomeParlamentar, gastoTotal)) %>%
   
   ggplot(aes(nomeParlamentar, gastoTotal, fill=expenses_gat, color=expenses_gat)) +
