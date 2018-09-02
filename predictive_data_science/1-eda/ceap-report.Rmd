@@ -1,0 +1,107 @@
+---
+title: "eda-gastos-ceao"
+author: "Italo Batista"
+date: "29 de agosto de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+library(readr)
+library(here)
+data.ceap = read_csv(here::here("/predictive_data_science/data/ceap.csv"))
+limit.ceap = read_csv(here::here("/predictive_data_science/data/limiteMensalCEAP.csv"))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+library(tidyverse)
+
+# não sei se é necessário
+# dados.ceap$t <- as.numeric(sub(",", ".", dados.ceap$valorGlosa, fixed = TRUE)) 
+data.ceap = data.ceap %>%
+  mutate(valorGlosa = str_replace_all(valorGlosa,"[[:punct:]]", ".")) %>%
+  mutate(valorGlosa = as.numeric(valorGlosa)) 
+```
+
+# Explorando dados
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+summary(data.ceap)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+# Quanto cada deputado gastou cada mês
+library(lubridate)
+
+data.ceap.month = data.ceap %>%
+  mutate(month = month(dataEmissao),
+         year = year(dataEmissao)) %>%
+  group_by(month, year, nomeParlamentar, sgUF) %>%
+  summarise(totalSpethMonth = sum(valorLíquido)) %>%
+  ungroup()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+# Adicionar limite menal
+data.ceap.month  = left_join(data.ceap.month, limit.ceap, by=c("sgUF"="UF"))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+
+```
+
+# Perguntas
+
+## 1. Quais são os deputados que gastaram mais dinheiro da CEAP? Quais são os mais econômicos? (7,5 pts)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+ranking.expenses = data.ceap %>%
+  #filter(valorLíquido > 0) %>%
+  group_by(nomeParlamentar) %>%
+  summarise(gastoTotal = sum(valorLíquido)) %>%
+  ungroup() %>%
+  arrange(gastoTotal)
+
+top.spenders = ranking.expenses %>%
+  top_n(10) %>%
+  mutate(expenses_gat = "Spender")
+
+top.economicals = ranking.expenses %>%
+  top_n(-10) %>%
+  mutate(expenses_gat = "Economical")
+
+ranking.expenses = rbind(top.spenders, top.economicals)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+expense.min = min(ranking.expenses$gastoTotal)
+expense.max = max(ranking.expenses$gastoTotal)
+
+m_breaks = ranking.expenses %>% select(gastoTotal) %>% distinct() %>% as.list()
+
+ranking.expenses %>%
+  mutate(nomeParlamentar = reorder(nomeParlamentar, gastoTotal)) %>%
+  ggplot(aes(nomeParlamentar, gastoTotal, color=expenses_gat)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  scale_color_manual(values=c("#FF6600", "#4F0C68")) +
+  scale_y_continuous(trans = "log2", breaks = m_breaks)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+summary(ranking.expenses)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+
+```
+
+# qual a data mes/ano em que os deputados mais gastaram?

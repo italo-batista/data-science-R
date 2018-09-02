@@ -3,7 +3,7 @@ library(tidyverse)
 library(tidytext)
 library(tm) # para stopwords
 
-hh_poetry = read_delim("poesia_hilda/data/hilda_hilst_poetry.csv", "\t", escape_double = FALSE, trim_ws = TRUE) %>%
+hh_poetry = read_delim(here::here("poesia_hilda/data/hilda_hilst_poetry.csv"), "\t", escape_double = FALSE, trim_ws = TRUE) %>%
     arrange(ANO)
 
 books = hh_poetry %>%
