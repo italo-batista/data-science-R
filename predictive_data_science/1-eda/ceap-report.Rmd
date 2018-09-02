@@ -50,6 +50,28 @@ data.ceap.month  = left_join(data.ceap.month, limit.ceap, by=c("sgUF"="UF"))
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+#require(gridExtra)
+library(cowplot)
+
+plot1 = data.ceap %>%
+  ggplot() +
+  geom_histogram(aes(valorLíquido)) +
+  geom_segment(aes(x = 0, xend = 5000, y = 150000, yend = 150000), color = "blue") +
+  scale_x_continuous(limits = c(0, 5000)) +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
+
+plot2 = data.ceap %>%
+  ggplot() +
+  geom_histogram(aes(valorLíquido)) +
+  scale_x_continuous(limits = c(5000, max(data.ceap %>% select(valorLíquido))),
+                     breaks=c(10000, 50000, 100000, 150000))
+  
+
+#grid.arrange(plot1, plot2, ncol=2)
+plot_grid(plot1, plot2, labels = "AUTO")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
 
 ```
 
