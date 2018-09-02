@@ -33,6 +33,46 @@ summary(data.ceap)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+require(cowplot)
+
+segment.y = 5000
+x.init = min(data.ceap %>% select(valorLíquido))
+x.end = max(data.ceap %>% select(valorLíquido))
+x.3rd.qrtl = 513
+  
+histogram = data.ceap %>%
+  ggplot() +
+  geom_histogram(aes(valorLíquido)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=10),
+        axis.title.x = element_text(size=10),
+        axis.text.y = element_text(size=10),
+        axis.title.y = element_text(size=10),
+        plot.title = element_text(hjust = 0.1, size=8))
+
+plot1 = histogram +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
+
+  plot2 = histogram +
+  scale_x_continuous(limits = c(x.init, x.3rd.qrtl)) +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+  ggtitle("Sem valores extremos superiores")
+
+plot3 = histogram +
+  scale_x_continuous(limits = c(x.init, x.end)) +
+  scale_y_continuous(trans='log2',
+                     labels = function(x) format(x, scientific = FALSE)) +
+  ggtitle("Escala logarítmica")
+
+plot4 = histogram +
+  scale_x_continuous(limits = c(x.init, x.3rd.qrtl)) +
+  scale_y_continuous(trans='log2',
+                     labels = function(x) format(x, scientific = FALSE)) +
+  ggtitle("Escala logarítmica e sem valores extremos superiores")
+
+plot_grid(plot1, plot2, plot3, plot4)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
 # Quanto cada deputado gastou cada mês
 library(lubridate)
 
@@ -48,33 +88,6 @@ data.ceap.month = data.ceap %>%
 # Adicionar limite menal
 data.ceap.month  = left_join(data.ceap.month, limit.ceap, by=c("sgUF"="UF"))
 ```
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-#require(gridExtra)
-library(cowplot)
-
-plot1 = data.ceap %>%
-  ggplot() +
-  geom_histogram(aes(valorLíquido)) +
-  geom_segment(aes(x = 0, xend = 5000, y = 150000, yend = 150000), color = "blue") +
-  scale_x_continuous(limits = c(0, 5000)) +
-  scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
-
-plot2 = data.ceap %>%
-  ggplot() +
-  geom_histogram(aes(valorLíquido)) +
-  scale_x_continuous(limits = c(5000, max(data.ceap %>% select(valorLíquido))),
-                     breaks=c(10000, 50000, 100000, 150000))
-  
-
-#grid.arrange(plot1, plot2, ncol=2)
-plot_grid(plot1, plot2, labels = "AUTO")
-```
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-
-```
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
 
