@@ -33,7 +33,7 @@ summary(data.ceap)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-require(cowplot)
+require(gridExtra)
 
 segment.y = 5000
 x.init = min(data.ceap %>% select(valorLíquido))
@@ -43,11 +43,11 @@ x.3rd.qrtl = 513
 histogram = data.ceap %>%
   ggplot() +
   geom_histogram(aes(valorLíquido)) +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, size=10),
+  theme(axis.text.x = element_text(size=8),
         axis.title.x = element_text(size=10),
-        axis.text.y = element_text(size=10),
+        axis.text.y = element_text(size=8),
         axis.title.y = element_text(size=10),
-        plot.title = element_text(hjust = 0.1, size=8))
+        plot.title = element_text(hjust = 0.1, size=10))
 
 plot1 = histogram +
   scale_y_continuous(labels = function(x) format(x, scientific = FALSE))
@@ -69,7 +69,7 @@ plot4 = histogram +
                      labels = function(x) format(x, scientific = FALSE)) +
   ggtitle("Escala logarítmica e sem valores extremos superiores")
 
-plot_grid(plot1, plot2, plot3, plot4)
+grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
