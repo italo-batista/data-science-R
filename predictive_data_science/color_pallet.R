@@ -7,7 +7,13 @@ drsimonj_colors <- c(
   'orange'     = "#f37735",
   'yellow'     = "#ffc425",
   'light grey' = "#cccccc",
-  'dark grey'  = "#8c8c8c")
+  'dark grey'  = "#8c8c8c",
+  'light blue' = "#03A9F4",
+  'purple'     = "#9C27B0",
+  'teal'       = "#64FFDA",
+  'lime'       = "#CDDC39",
+  'amber'      = "#FFC107",
+  'pink'       = "#EC407A")
 
 drsimonj_cols <- function(...) {
   cols <- c(...)
@@ -17,11 +23,12 @@ drsimonj_cols <- function(...) {
 }
 
 drsimonj_palettes <- list(
-  'main'  = drsimonj_cols("blue", "green", "yellow"),
-  'cool'  = drsimonj_cols("blue", "green"),
-  'hot'   = drsimonj_cols("yellow", "orange", "red"),
-  'mixed' = drsimonj_cols("blue", "green", "yellow", "orange", "red"),
-  'grey'  = drsimonj_cols("light grey", "dark grey")
+  'main'    = drsimonj_cols("blue", "green", "yellow"),
+  'cool'    = drsimonj_cols("blue", "teal", "green"),
+  'hotpink'     = drsimonj_cols("blue", "purple", "pink", "red"),
+  'hot' = drsimonj_cols("yellow", "orange", "red"),
+  'mixed'   = drsimonj_cols("blue", "green", "yellow", "orange", "red"),
+  'grey'    = drsimonj_cols("light grey", "dark grey")
 )
 
 drsimonj_pal <- function(palette = "main", reverse = FALSE, ...) {

@@ -73,23 +73,6 @@ grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-# Quanto cada deputado gastou cada mês
-library(lubridate)
-
-data.ceap.month = data.ceap %>%
-  mutate(month = month(dataEmissao),
-         year = year(dataEmissao)) %>%
-  group_by(month, year, nomeParlamentar, sgUF) %>%
-  summarise(totalExpenditureMonth = sum(valorLíquido)) %>%
-  ungroup()
-```
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-# Adicionar limite menal
-data.ceap.month  = left_join(data.ceap.month, limit.ceap, by=c("sgUF"="UF"))
-```
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
 
 ```
 
@@ -214,6 +197,75 @@ plot2 = get_plot_qst_3(data.ceap.pb$useCEAP, title = "",
                        yLab = "Quantity of times used", yScaleUnity = "k", yScaleRound = 1e-3)
 
 grid.arrange(plot1, plot2, ncol=2)
+```
+
+## 4. Quais os deputados que mais ultrapassam o limite de CEAP do seu estado? Os dados com os limites de CEAP por estado estão disponíveis neste link. (7,5 pts)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+# Quanto cada deputado gastou cada mês
+library(lubridate)
+
+data.ceap.month = data.ceap %>%
+  mutate(month = month(dataEmissao),
+         year = year(dataEmissao)) %>%
+  group_by(month, year, nomeParlamentar, sgUF) %>%
+  summarise(totalExpenditureMonth = sum(valorLíquido)) %>%
+  ungroup()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+# Adicionar limite mensal
+data.ceap.month  = left_join(data.ceap.month, limit.ceap, by=c("sgUF"="UF"))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+data.ceap.month$exceeded_limit = data.ceap.month$totalExpenditureMonth > data.ceap.month$limite_mensal
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+data.ceap.month.exceeded = data.ceap.month %>%
+  filter(exceeded_limit == TRUE) %>%
+  group_by(nomeParlamentar, sgUF) %>% 
+  summarise(qntExceeded = n()) %>%
+  ungroup() %>%
+  group_by(sgUF) %>%
+  top_n(4) %>% 
+  ungroup()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE, fig.height=6, fig.width=8}
+data.ceap.month.exceeded %>%
+  arrange(qntExceeded) %>%
+  top_n(15) %>%
+  
+  ggplot(aes(x = reorder(nomeParlamentar, qntExceeded), 
+             y = qntExceeded, fill = qntExceeded, alpha = qntExceeded, width = 0.5)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  
+  coord_flip() +
+  facet_wrap(~sgUF, ncol = 2, scales = "free") +
+  scale_alpha_continuous(range = c(0.6, 1)) +
+  scale_fill_drsimonj(discrete = FALSE, palette = "hot") +
+  scale_y_continuous(limits = c(0, max(data.ceap.month.exceeded$qntExceeded))) +
+  
+  theme_minimal() +
+  theme(strip.text=element_text(hjust=0, face = "italic"),
+        axis.text.y = element_text(size=7)) +
+  labs(title = "The top 15 brazilian congressmen that exceeded CEAP limit more times ", 
+       subtitle = "Grouped by UF",
+       x = NULL, y = "Quantity of times (months) exceeded") 
+```
+
+## 5. Quais estados cujos parlamentares gastam mais com passagens aéreas? (7,5 pts)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+
+```
+
+## 6. Escolha três partidos e responda: Quais são os tipos de despesa mais utilizados no uso da CEAP pelos deputados desses partidos? Mesma pergunta considerando valores em R$. (7,5 pts)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+
 ```
 
 # qual a data mes/ano em que os deputados mais gastaram?

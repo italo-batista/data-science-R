@@ -134,7 +134,7 @@ hh_book_words %>%
   mutate(word = factor(word, levels = rev(unique(word))))%>% 
   group_by(LIVRO) %>% top_n(4) %>% ungroup() %>%
   ggplot(aes(tf_idf, word, fill = LIVRO, alpha = tf_idf)) +
-  geom_barh(stat = "identity", show.legend = FALSE) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
   labs(title = "Palavras mais relevantes em alguns livros de poesia de Hilda Hilst",
        y = NULL, x = "tf-idf") +
   facet_wrap(~LIVRO, ncol = 2, scales = "free") +
