@@ -16,16 +16,6 @@ data.ceap = read_csv(here::here("predictive_data_science/data/ceap.csv"))
 limit.ceap = read_csv(here::here("predictive_data_science/data/limiteMensalCEAP.csv"))
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-library(tidyverse)
-
-# não sei se é necessário
-# dados.ceap$t <- as.numeric(sub(",", ".", dados.ceap$valorGlosa, fixed = TRUE)) 
-data.ceap = data.ceap %>%
-  mutate(valorGlosa = str_replace_all(valorGlosa,"[[:punct:]]", ".")) %>%
-  mutate(valorGlosa = as.numeric(valorGlosa)) 
-```
-
 # Explorando dados
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
@@ -34,6 +24,11 @@ summary(data.ceap)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
 require(gridExtra)
+library(tidyverse)
+
+data.ceap = data.ceap %>%
+  mutate(valorGlosa = str_replace_all(valorGlosa,"[[:punct:]]", ".")) %>%
+  mutate(valorGlosa = as.numeric(valorGlosa)) 
 
 segment.y = 5000
 x.init = min(data.ceap %>% select(valorLíquido))
@@ -155,6 +150,7 @@ data.ceap.aggr.uf %>%
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
 require(gridExtra)
+library(scales)
 source("../color_pallet.R")
 
 data.ceap.pb = data.ceap %>%
@@ -175,8 +171,8 @@ get_plot_qst_3 <- function(yVar, title, yLab, yScaleUnity, yScaleRound) {
     geom_bar(stat = "identity") +
     geom_text(aes(label=sgPartido), hjust=-0.25, angle=90, color="black", size=2.5) +
 
-    scale_color_drsimonj(discrete = TRUE, palette = "hot") +
-    scale_fill_drsimonj(discrete = TRUE, palette = "hot") + 
+    scale_color_drsimonj(discrete = TRUE, palette = "cool") +
+    scale_fill_drsimonj(discrete = TRUE, palette = "cool") + 
     scale_y_continuous(label = unit_format(unit = yScaleUnity, scale = yScaleRound),
                        limits = c(y.min, y.max + y.padding)) + 
     
@@ -199,7 +195,7 @@ plot2 = get_plot_qst_3(data.ceap.pb$useCEAP, title = "",
 grid.arrange(plot1, plot2, ncol=2)
 ```
 
-## 4. Quais os deputados que mais ultrapassam o limite de CEAP do seu estado? Os dados com os limites de CEAP por estado estão disponíveis neste link. (7,5 pts)
+## 4. Quais os deputados que mais ultrapassam o limite de CEAP do seu estado? Os dados com os limites de CEAP por estado estão disponíveis neste link.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
 # Quanto cada deputado gastou cada mês
@@ -251,7 +247,7 @@ data.ceap.month.exceeded %>%
   theme_minimal() +
   theme(strip.text=element_text(hjust=0, face = "italic"),
         axis.text.y = element_text(size=7)) +
-  labs(title = "The top 15 brazilian congressmen that exceeded CEAP limit more times ", 
+  labs(title = "The top 15 brazilian congressmen that exceeded CEAP limit more times", 
        subtitle = "Grouped by UF",
        x = NULL, y = "Quantity of times (months) exceeded") 
 ```
@@ -259,7 +255,30 @@ data.ceap.month.exceeded %>%
 ## 5. Quais estados cujos parlamentares gastam mais com passagens aéreas? (7,5 pts)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+data.ceap.uf.airfare = data.ceap %>%
+  filter(tipoDespesa == "PASSAGENS AÉREAS") %>%
+  group_by(sgUF) %>%
+  summarise(totalExpenditure = sum(valorLíquido)) %>%
+  ungroup() 
+```
 
+```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+data.ceap.uf.airfare %>%
+  ggplot(aes(x=reorder(sgUF, totalExpenditure), 
+             y=totalExpenditure, color=sgUF, size=totalExpenditure)) +
+  geom_point() +
+  geom_text(aes(label=sgUF), size = 3, hjust=-0.15, vjust=1.9) +
+  
+  scale_color_drsimonj(palette = "mixed") +
+  scale_size_continuous(trans = "log10") +
+  scale_y_continuous(label = unit_format(unit = "k", scale = 1e-3),
+                     breaks = round(seq(0, max(data.ceap.uf.airfare$totalExpenditure), by = 100000),1)) + 
+  
+  theme_minimal() +
+  theme(legend.position = "NA",
+        axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  labs(title="Federation unity that most spent with airfares",
+       y="")
 ```
 
 ## 6. Escolha três partidos e responda: Quais são os tipos de despesa mais utilizados no uso da CEAP pelos deputados desses partidos? Mesma pergunta considerando valores em R$. (7,5 pts)
