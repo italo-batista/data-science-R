@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 library(readr)
 library(here)
 data.ceap = read_csv(here::here("predictive_data_science/data/ceap.csv"))
@@ -18,11 +18,11 @@ limit.ceap = read_csv(here::here("predictive_data_science/data/limiteMensalCEAP.
 
 # Explorando dados
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 summary(data.ceap)
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 require(gridExtra)
 library(tidyverse)
 
@@ -38,6 +38,7 @@ x.3rd.qrtl = 513
 histogram = data.ceap %>%
   ggplot() +
   geom_histogram(aes(valorLíquido)) +
+  theme_minimal() +
   theme(axis.text.x = element_text(size=8),
         axis.title.x = element_text(size=10),
         axis.text.y = element_text(size=8),
@@ -67,15 +68,11 @@ plot4 = histogram +
 grid.arrange(plot1, plot2, plot3, plot4, ncol=2)
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-
-```
-
 # Perguntas
 
 ## 1. Quais são os deputados que gastaram mais dinheiro da CEAP? Quais são os mais econômicos? 
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 ranking.expenditures = data.ceap %>%
   filter(valorLíquido > 0) %>%
   group_by(nomeParlamentar) %>%
@@ -94,37 +91,39 @@ top.economicals = ranking.expenditures %>%
 ranking.expenditures = rbind(top.spenders, top.economicals)
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
-expense.min = min(ranking.expenditures$gastoTotal)
-expense.max = max(ranking.expenditures$gastoTotal)
+```{r message=FALSE, warning=FALSE, error=FALSE}
+expense.min = min(ranking.expenditures$totalExpenditure)
+expense.max = max(ranking.expenditures$totalExpenditure)
 
-m_breaks = ranking.expenditures %>% select(gastoTotal) %>% distinct()
+m_breaks = ranking.expenditures %>% select(totalExpenditure) %>% distinct()
 
 ranking.expenditures %>%
-  mutate(nomeParlamentar = reorder(nomeParlamentar, gastoTotal)) %>%
+  mutate(nomeParlamentar = reorder(nomeParlamentar, totalExpenditure)) %>%
   
-  ggplot(aes(nomeParlamentar, gastoTotal, fill=expenses_gat, color=expenses_gat)) +
+  ggplot(aes(nomeParlamentar, totalExpenditure, fill=expenses_gat, color=expenses_gat)) +
   geom_bar(stat = "identity") +
-  geom_text(data = top.economicals, size=2.8, color="#FF6600", hjust=1.1, fontface="bold", aes(label=gastoTotal)) +
-  geom_text(data = top.spenders, size=2.8, color="white", hjust=1.1, fontface="bold", aes(label=gastoTotal)) +
+  geom_text(data = top.economicals, size=2.8, color="#FF6600", hjust=1.1, fontface="bold", aes(label=totalExpenditure)) +
+  geom_text(data = top.spenders, size=2.8, color="white", hjust=1.1, fontface="bold", aes(label=totalExpenditure)) +
   coord_flip() +
   
   scale_y_continuous(limits = c(expense.min - 100000, expense.max)) +
   scale_fill_manual(labels = c("10+ Econômicos", "10+ Gastadores"), values=c("#FF6600", "#4F0C68")) +
   scale_color_manual(labels = c("10+ Econômicos", "10+ Gastadores"), values=c("#FF6600", "#4F0C68")) +
   
-  labs(title="Deputados que mais e menos gastam o auxílio da CEAP", 
-       y ="Gasto total", 
-       x = "Nome do Parlamentar") +
+  theme_minimal() +
   theme(plot.title = element_text(hjust = -1.5),
-        legend.title = element_blank(), legend.position = "top")
+        legend.title = element_blank(), legend.position = "top") +
+    labs(title="Deputados que mais e menos gastam o auxílio da CEAP", 
+       y ="Gasto total", x = "Nome do Parlamentar")
 ```
 
 ## 2. Quais os estados cujos deputados gastam mais no exterior? Quais os estados cujos deputados gastam menos no exterior?
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 require(scales)
+
 SPENT_ABROAD = 2
+
 data.ceap.aggr.uf = data.ceap %>%
   filter(tipoDocumento == SPENT_ABROAD) %>%
   group_by(sgUF) %>%
@@ -140,15 +139,16 @@ data.ceap.aggr.uf %>%
   
   scale_color_manual(values=c("#AD1457"), name = "") +
   scale_y_continuous(label = unit_format(unit = "k", scale = 1e-3)) + 
-  labs(title="Federation unities whose congressmen more and less spent abroad", 
-       x ="Federation Unity", y = "Total Expenditure (R$)") +
-  theme(legend.position = "NA")
-  
+
+  theme_minimal() +
+  theme(legend.position = "NA") +
+    labs(title="Federation unities whose congressmen more and less spent abroad", 
+       x ="Federation Unity", y = "Total Expenditure (R$)")
 ```
 
 ## 3. Quais os partidos cujos parlamentares mais usam CEAP no estado da Paraíba? Quais são os que menos usam? Mesmas perguntas considerando valores em R$.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 require(gridExtra)
 library(scales)
 source("../color_pallet.R")
@@ -171,8 +171,8 @@ get_plot_qst_3 <- function(yVar, title, yLab, yScaleUnity, yScaleRound) {
     geom_bar(stat = "identity") +
     geom_text(aes(label=sgPartido), hjust=-0.25, angle=90, color="black", size=2.5) +
 
-    scale_color_drsimonj(discrete = TRUE, palette = "cool") +
-    scale_fill_drsimonj(discrete = TRUE, palette = "cool") + 
+    scale_color_drsimonj(discrete = TRUE, palette = "hotpink") +
+    scale_fill_drsimonj(discrete = TRUE, palette = "hotpink") + 
     scale_y_continuous(label = unit_format(unit = yScaleUnity, scale = yScaleRound),
                        limits = c(y.min, y.max + y.padding)) + 
     
@@ -197,7 +197,7 @@ grid.arrange(plot1, plot2, ncol=2)
 
 ## 4. Quais os deputados que mais ultrapassam o limite de CEAP do seu estado? Os dados com os limites de CEAP por estado estão disponíveis neste link.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 # Quanto cada deputado gastou cada mês
 library(lubridate)
 
@@ -209,16 +209,16 @@ data.ceap.month = data.ceap %>%
   ungroup()
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 # Adicionar limite mensal
 data.ceap.month  = left_join(data.ceap.month, limit.ceap, by=c("sgUF"="UF"))
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 data.ceap.month$exceeded_limit = data.ceap.month$totalExpenditureMonth > data.ceap.month$limite_mensal
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 data.ceap.month.exceeded = data.ceap.month %>%
   filter(exceeded_limit == TRUE) %>%
   group_by(nomeParlamentar, sgUF) %>% 
@@ -229,7 +229,7 @@ data.ceap.month.exceeded = data.ceap.month %>%
   ungroup()
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE, fig.height=6, fig.width=8}
+```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=6, fig.width=8}
 data.ceap.month.exceeded %>%
   arrange(qntExceeded) %>%
   top_n(15) %>%
@@ -239,7 +239,7 @@ data.ceap.month.exceeded %>%
   geom_bar(stat = "identity", show.legend = FALSE) +
   
   coord_flip() +
-  facet_wrap(~sgUF, ncol = 2, scales = "free") +
+  facet_wrap(~sgUF, ncol = 2, scales = "free_y") +
   scale_alpha_continuous(range = c(0.6, 1)) +
   scale_fill_drsimonj(discrete = FALSE, palette = "hot") +
   scale_y_continuous(limits = c(0, max(data.ceap.month.exceeded$qntExceeded))) +
@@ -252,9 +252,9 @@ data.ceap.month.exceeded %>%
        x = NULL, y = "Quantity of times (months) exceeded") 
 ```
 
-## 5. Quais estados cujos parlamentares gastam mais com passagens aéreas? (7,5 pts)
+## 5. Quais estados cujos parlamentares gastam mais com passagens aéreas?
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 data.ceap.uf.airfare = data.ceap %>%
   filter(tipoDespesa == "PASSAGENS AÉREAS") %>%
   group_by(sgUF) %>%
@@ -262,7 +262,7 @@ data.ceap.uf.airfare = data.ceap %>%
   ungroup() 
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r message=FALSE, warning=FALSE, error=FALSE}
 data.ceap.uf.airfare %>%
   ggplot(aes(x=reorder(sgUF, totalExpenditure), 
              y=totalExpenditure, color=sgUF, size=totalExpenditure)) +
@@ -277,14 +277,78 @@ data.ceap.uf.airfare %>%
   theme_minimal() +
   theme(legend.position = "NA",
         axis.text.x = element_blank(), axis.title.x = element_blank()) +
-  labs(title="Federation unity that most spent with airfares",
-       y="")
+  labs(title="Federation Unities that most spent with airfares",
+       y="Amount spent with airfare in R$")
 ```
 
-## 6. Escolha três partidos e responda: Quais são os tipos de despesa mais utilizados no uso da CEAP pelos deputados desses partidos? Mesma pergunta considerando valores em R$. (7,5 pts)
+## 6. Escolha três partidos e responda: Quais são os tipos de despesa mais utilizados no uso da CEAP pelos deputados desses partidos? Mesma pergunta considerando valores em R$.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, error=FALSE}
+```{r  message=FALSE, warning=FALSE, error=FALSE}
+selected.pp = c("PMDB", "PSDB", "PT")
 
+data.ceap.type.exp = data.ceap %>%
+  filter(sgPartido %in% selected.pp) %>%
+  group_by(sgPartido, tipoDespesa) %>%
+  summarise(useCEAP = n(),
+         totalExpenditure = sum(valorLíquido)) %>%
+  ungroup()
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+plot1 = data.ceap.type.exp %>%
+  na.omit() %>%
+  group_by(sgPartido) %>%
+  top_n(2) %>%
+  ungroup() %>%
+  arrange(totalExpenditure) %>%
+
+  ggplot(aes(x = reorder(totalExpenditure, tipoDespesa), 
+             y = totalExpenditure, fill = tipoDespesa, width = 0.5)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  geom_text(aes(label=tipoDespesa), size = 2.3, color = "black", hjust = 0.9, fontface = "bold") +
+  
+  coord_flip() +
+  facet_wrap(~sgPartido, ncol = 1, scales = "free_y") +
+  scale_fill_drsimonj(discrete = TRUE, palette = "cool") +
+  scale_y_continuous(label = unit_format(unit = "m", scale = 1e-6),
+                     limits = c(0, max(data.ceap.type.exp$totalExpenditure))) +
+  
+  theme_minimal() +
+  theme(strip.text=element_text(hjust=0, face = "italic"),
+        axis.text.y = element_blank(), legend.position = "NA")+
+  labs(y = "Total Expenditure (R$)", x = NULL)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(gridExtra)
+
+p2.y.max = max(data.ceap.type.exp$useCEAP)
+p2.y.scaleRound = 1e+4
+  
+plot2 = data.ceap.type.exp %>%
+  na.omit() %>%
+  group_by(sgPartido) %>%
+  top_n(2) %>%
+  ungroup() %>%
+  arrange(totalExpenditure) %>%
+
+  ggplot(aes(x = reorder(useCEAP, tipoDespesa), 
+             y = useCEAP, fill = tipoDespesa, width = 0.5)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  geom_text(aes(label=tipoDespesa), size = 2.3, color = "black", hjust = 0.1, fontface = "bold") +
+  
+  coord_flip() +
+  facet_wrap(~sgPartido, ncol = 1, scales = "free_y") +
+  scale_fill_drsimonj(discrete = TRUE, palette = "cool") +
+  scale_y_continuous(label = unit_format(unit = "k", scale = 1e-3),
+                     limits = c(0, p2.y.max + p2.y.scaleRound)) +
+  
+  theme_minimal() +
+  theme(strip.text=element_text(hjust=0, face = "italic"),
+        axis.text.y = element_blank(), legend.position = "NA")+
+  labs(y = "Quantity of times CEAP was used", x = NULL)
+
+grid.arrange(plot1, plot2, ncol=2)
 ```
 
 # qual a data mes/ano em que os deputados mais gastaram?
