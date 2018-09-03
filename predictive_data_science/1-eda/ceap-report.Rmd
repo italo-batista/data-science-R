@@ -34,6 +34,7 @@ data.ceap = data.ceap %>%
   mutate(valorGlosa = str_replace_all(valorGlosa,"[[:punct:]]", ".")) %>%
   mutate(valorGlosa = as.numeric(valorGlosa)) 
 
+# Definindo algumas constantes
 segment.y = 5000
 x.init = min(data.ceap %>% select(valorLíquido))
 x.end = max(data.ceap %>% select(valorLíquido))
@@ -93,11 +94,11 @@ ranking.expenditures = data.ceap %>%
   arrange(totalExpenditure)
 
 top.spenders = ranking.expenditures %>%
-  top_n(10) %>%
+  top_n(10, totalExpenditure) %>%
   mutate(expenses_gat = "Spender")
 
 top.economicals = ranking.expenditures %>%
-  top_n(-10) %>%
+  top_n(-10, totalExpenditure) %>%
   mutate(expenses_gat = "Economical")
 
 ranking.expenditures = rbind(top.spenders, top.economicals)
@@ -263,7 +264,7 @@ data.ceap.month.exceeded = data.ceap.month %>%
   summarise(qntExceeded = n()) %>%
   ungroup() %>%
   group_by(sgUF) %>%
-  top_n(4) %>% 
+  top_n(4, qntExceeded) %>% 
   ungroup()
 ```
 
@@ -271,8 +272,7 @@ Plotando os 15 deputados que ultrapassaram o limite mais vezes, agrupando por es
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=6, fig.width=8}
 data.ceap.month.exceeded %>%
-  arrange(qntExceeded) %>%
-  top_n(15) %>%
+  top_n(15, qntExceeded) %>%
   
   ggplot(aes(x = reorder(nomeParlamentar, qntExceeded), 
              y = qntExceeded, fill = qntExceeded, alpha = qntExceeded, width = 0.5)) +
