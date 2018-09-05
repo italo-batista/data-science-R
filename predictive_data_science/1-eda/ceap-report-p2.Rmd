@@ -1,0 +1,61 @@
+---
+title: "Ceap Report [p. 2]"
+author: "Italo Batista"
+date: "September 5, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Perguntas
+### 1. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional?
+### 2. Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?
+
+## Importando dados
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(readr)
+require(here)
+data.ceap = read_csv(here::here("predictive_data_science/data/ceap.csv"))
+investiment.mn <- read_delim(here::here("predictive_data_science/data/investimento-mn.csv"), delim=";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+## Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional?
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(lubridate)
+require(tidyverse)
+
+data.ceap.by.year = data.ceap %>%
+  mutate(year = year(dataEmissao)) %>%
+  group_by(year, tipoDespesa) %>%
+  summarise(totalExpenditure = sum(valorLíquido))
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(tidyverse)
+require(scales)
+
+data.ceap.by.year %>%
+  ggplot(aes(x=year, y=totalExpenditure)) +
+  geom_jitter() + 
+  theme(legend.position = "bottom")
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+
+```
