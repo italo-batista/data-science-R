@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE)
 require(readr)
 require(here)
 data.ceap = read_csv(here::here("predictive_data_science/data/ceap.csv"))
-investiment.mn <- read_delim(here::here("predictive_data_science/data/investimento-mn.csv"), delim=";", escape_double = FALSE, trim_ws = TRUE)
+investiment.mn <- read_delim(here::here("predictive_data_science/data/investimento-mn.csv"), delim="\t", escape_double = FALSE, trim_ws = TRUE)
 ```
 
 ## Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional?
@@ -45,19 +45,23 @@ max.year = max(data.ceap.by.year$year)
 min.year = min(data.ceap.by.year$year)
 
 investiment.mn.filter.year = investiment.mn %>%
-  filter(ano <= max.year & ano >= min.year)
+  filter( year <= max.year & year >= min.year)
 
 data.ceap.by.year %>%
   ggplot() +
   geom_point(aes(x=year, y=totalExpenditure), alpha=0.3) + 
   geom_line(aes(x=year, y=totalExpenditure, group=tipoDespesa), linetype = 2, size=0.3) +
-  geom_line(data=investiment.mn.filter.year, aes(x=ano, y=investimento)) +
-  scale_x_continuous(trans='log2', breaks=c(min.year:max.year))
+  geom_line(data=investiment.mn.filter.year, aes(x=year, y=investiment), color="red") +
+  scale_x_continuous(breaks=c(min.year:max.year))
 
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-
+investiment.mn %>%
+  ggplot(aes(x=year, y=investiment), fill="deepink") +
+  geom_point() + 
+  geom_line(linetype = 2) +
+  scale_x_continuous(breaks = c(2001:2018))
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}

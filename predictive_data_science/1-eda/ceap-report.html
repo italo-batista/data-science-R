@@ -345,12 +345,11 @@ data.ceap.month = data.ceap %&gt;%
   summarise(qntExceeded = n()) %&gt;%
   ungroup() %&gt;%
   group_by(sgUF) %&gt;%
-  top_n(4) %&gt;% 
+  top_n(4, qntExceeded) %&gt;% 
   ungroup()</code></pre>
 <p>Plotando os 15 deputados que ultrapassaram o limite mais vezes, agrupando por estado:</p>
 <pre class="r"><code>data.ceap.month.exceeded %&gt;%
-  arrange(qntExceeded) %&gt;%
-  top_n(15) %&gt;%
+  top_n(15, qntExceeded) %&gt;%
   
   ggplot(aes(x = reorder(nomeParlamentar, qntExceeded), 
              y = qntExceeded, fill = qntExceeded, alpha = qntExceeded, width = 0.5)) +
