@@ -143,6 +143,7 @@ data.ceap = data.ceap %&gt;%
   mutate(valorGlosa = str_replace_all(valorGlosa,&quot;[[:punct:]]&quot;, &quot;.&quot;)) %&gt;%
   mutate(valorGlosa = as.numeric(valorGlosa)) 
 
+# Definindo algumas constantes
 segment.y = 5000
 x.init = min(data.ceap %&gt;% select(valorLíquido))
 x.end = max(data.ceap %&gt;% select(valorLíquido))
@@ -199,11 +200,11 @@ grid.arrange(plot1, plot2, plot3, plot4, ncol=2)</code></pre>
   arrange(totalExpenditure)
 
 top.spenders = ranking.expenditures %&gt;%
-  top_n(10) %&gt;%
+  top_n(10, totalExpenditure) %&gt;%
   mutate(expenses_gat = &quot;Spender&quot;)
 
 top.economicals = ranking.expenditures %&gt;%
-  top_n(-10) %&gt;%
+  top_n(-10, totalExpenditure) %&gt;%
   mutate(expenses_gat = &quot;Economical&quot;)
 
 ranking.expenditures = rbind(top.spenders, top.economicals)</code></pre>

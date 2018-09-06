@@ -31,17 +31,29 @@ require(tidyverse)
 data.ceap.by.year = data.ceap %>%
   mutate(year = year(dataEmissao)) %>%
   group_by(year, tipoDespesa) %>%
-  summarise(totalExpenditure = sum(valorLíquido))
+  summarise(totalExpenditure = sum(valorLíquido)) %>%
+  ungroup() %>%
+  mutate(year = as.numeric(year)) %>%
+  na.omit()
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(tidyverse)
 require(scales)
 
+max.year = max(data.ceap.by.year$year)
+min.year = min(data.ceap.by.year$year)
+
+investiment.mn.filter.year = investiment.mn %>%
+  filter(ano <= max.year & ano >= min.year)
+
 data.ceap.by.year %>%
-  ggplot(aes(x=year, y=totalExpenditure)) +
-  geom_jitter() + 
-  theme(legend.position = "bottom")
+  ggplot() +
+  geom_point(aes(x=year, y=totalExpenditure), alpha=0.3) + 
+  geom_line(aes(x=year, y=totalExpenditure, group=tipoDespesa), linetype = 2, size=0.3) +
+  geom_line(data=investiment.mn.filter.year, aes(x=ano, y=investimento)) +
+  scale_x_continuous(trans='log2', breaks=c(min.year:max.year))
+
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
