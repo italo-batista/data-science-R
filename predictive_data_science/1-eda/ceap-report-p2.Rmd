@@ -44,15 +44,35 @@ rm(curr_data)
 ## Pré-processando
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-require(tidyverse)
+unify_expenditure_type = function(data) {
 
-varsOfInterest = c("txNomeParlamentar", "idecadastro", "sgPartido", "sgUF", 
-                   "txtDescricao", "txtFornecedor", "vlrLiquido", "numMes", "numAno")
-
-data.ceap = data.ceap %>%
+  data$tipoDespesa = NA
   
-  # Selecionando apenas variáveis de interesse  
-  select(varsOfInterest) %>%
+  data$tipoDespesa[data$txtDescricao == "MANUTENÇÃO DE ESCRITÓRIO DE APOIO À ATIVIDADE PARLAMENTAR"] = "Escritório"
+  data$tipoDespesa[data$txtDescricao == "SERVIÇOS POSTAIS"] = "Serviços Postais"
+  data$tipoDespesa[data$txtDescricao %in% c("LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES", "LOCAÇÃO OU FRETAMENTO DE AERONAVES", "LOCAÇÃO OU FRETAMENTO DE EMBARCAÇÕES", "LOCAÇÃO DE VEÍCULOS AUTOMOTORES OU FRETAMENTO DE EMBARCAÇÕES")] = "Locação de veículos"
+  data$tipoDespesa[data$txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES."] = "Combustíveis"
+  data$tipoDespesa[data$txtDescricao %in% c("PASSAGENS AÉREAS", "Emissão Bilhete Aéreo")] = "Passagens aéreas"
+  data$tipoDespesa[data$txtDescricao == "TELEFONIA"] = "Telefonia"
+  data$tipoDespesa[data$txtDescricao == "DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR."] = "Divulgação de atividade parlamentar"
+  data$tipoDespesa[data$txtDescricao == "FORNECIMENTO DE ALIMENTAÇÃO DO PARLAMENTAR"] = "Alimentação"
+  data$tipoDespesa[data$txtDescricao == "HOSPEDAGEM ,EXCETO DO PARLAMENTAR NO DISTRITO FEDERAL."] = "Hospedagem"
+  data$tipoDespesa[data$txtDescricao == "SERVIÇO DE TÁXI, PEDÁGIO E ESTACIONAMENTO"] = "Locomoção"
+  data$tipoDespesa[data$txtDescricao == "CONSULTORIAS, PESQUISAS E TRABALHOS TÉCNICOS."] = "Consultoria"
+  data$tipoDespesa[data$txtDescricao == "ASSINATURA DE PUBLICAÇÕES"] = "Revistas/Jornais"
+  data$tipoDespesa[data$txtDescricao == "SERVIÇO DE SEGURANÇA PRESTADO POR EMPRESA ESPECIALIZADA."] = "Segurança particular"
+  data$tipoDespesa[data$txtDescricao == "PASSAGENS TERRESTRES, MARÍTIMAS OU FLUVIAIS"] = "Passagens (exceto aéreas)"
+  data$tipoDespesa[data$txtDescricao == "PARTICIPAÇÃO EM CURSO, PALESTRA OU EVENTO SIMILAR"] = "Cursos e palestras"
+  
+  data = data %>% 
+    select(-txtDescricao)
+  
+  return(data)
+}
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(tidyverse)
 
 preprocess_data = function(raw_data, varsOfInterest) {
   data = raw_data %>%
