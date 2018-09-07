@@ -58,7 +58,11 @@ data.ceap = data.ceap %>%
   mutate(vlrLiquido = str_replace_all(vlrLiquido,"[[:punct:]]", ".")) %>%
   mutate(vlrLiquido = as.numeric(vlrLiquido)) %>%
   
-  na.omit()
+  # Renomeando algumas vars
+  mutate(year = numAno,
+         tipoDespesa = txtDescricao,
+         nomeParlamentar = txNomeParlamentar,
+         valorLíquido = vlrLiquido) 
 ```
 
 ## Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional?
@@ -68,31 +72,14 @@ require(lubridate)
 require(tidyverse)
 
 data.ceap.by.year = data.ceap %>%
-  mutate(year = year(dataEmissao)) %>%
   group_by(year, tipoDespesa) %>%
   summarise(totalExpenditure = sum(valorLíquido)) %>%
   ungroup() %>%
-  mutate(year = as.numeric(year)) %>%
   na.omit()
 ```
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
-require(tidyverse)
-require(scales)
-
-max.year = max(data.ceap.by.year$year)
-min.year = min(data.ceap.by.year$year)
-
-investiment.mn.filter.year = investiment.mn %>%
-  filter( year <= max.year & year >= min.year)
-
-data.ceap.by.year %>%
-  ggplot() +
-  geom_point(aes(x=year, y=totalExpenditure), alpha=0.3) + 
-  geom_line(aes(x=year, y=totalExpenditure, group=tipoDespesa), linetype = 2, size=0.3) +
-  geom_line(data=investiment.mn.filter.year, aes(x=year, y=investiment), color="red") +
-  scale_x_continuous(breaks=c(min.year:max.year))
-
+```{r}
+theme_set(theme_minimal())
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
@@ -104,6 +91,24 @@ investiment.mn %>%
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
+
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(tidyverse)
+require(scales)
+
+max.year = max(data.ceap.by.year$year)
+min.year = min(data.ceap.by.year$year)
+
+investiment.mn.filter.year = investiment.mn %>%
+  filter(year <= max.year & year >= min.year)
+
+ggplot() +
+  geom_line(data=data.ceap.by.year, aes(x=year, y=totalExpenditure, group=tipoDespesa), linetype = 2, size=0.3) +
+  geom_line(data=investiment.mn.filter.year, aes(x=year, y=investiment), color="red") +
+  geom_point(data=investiment.mn.filter.year, aes(x=year, y=investiment), alpha=0.3) + 
+  scale_x_continuous(breaks=c(min.year:max.year))
 
 ```
 
