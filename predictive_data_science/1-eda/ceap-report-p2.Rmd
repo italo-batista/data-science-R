@@ -10,16 +10,55 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Perguntas
-### 1. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional?
-### 2. Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?
+- 1. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?  
+- 2. Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?  
 
 ## Importando dados
+
+Os dados foram baixados por meio [desta página](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/dados-abertos-cota-parlamentar)
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(readr)
 require(here)
-data.ceap = read_csv(here::here("predictive_data_science/data/ceap.csv"))
-investiment.mn <- read_delim(here::here("predictive_data_science/data/investimento-mn.csv"), delim="\t", escape_double = FALSE, trim_ws = TRUE)
+
+data_folder = here::here("predictive_data_science/data/ceap")
+for(year in c(2009:2018)) {
+  file_name = paste("Ano-", year, ".csv", sep="")
+  path_to_data = paste(data_folder, file_name, sep="/")
+  curr_data = read_delim(path_to_data, delim = ";", escape_double = FALSE, trim_ws = TRUE)
+  
+  if (!exists("data.ceap")) {
+    data.ceap = curr_data
+  } else {
+    data.ceap = rbind(data.ceap, curr_data)
+  }
+}
+
+investiment.mn = read_delim(here::here("predictive_data_science/data/investimento-mn.csv"), 
+                            delim="\t", escape_double = FALSE, trim_ws = TRUE)
+
+rm(curr_data)
+```
+
+
+## Pré-processando
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(tidyverse)
+
+varsOfInterest = c("txNomeParlamentar", "idecadastro", "sgPartido", "sgUF", 
+                   "txtDescricao", "txtFornecedor", "vlrLiquido", "numMes", "numAno")
+
+data.ceap = data.ceap %>%
+  
+  # Selecionando apenas variáveis de interesse  
+  select(varsOfInterest) %>%
+
+  # Substituindo víruglas por pontos
+  mutate(vlrLiquido = str_replace_all(vlrLiquido,"[[:punct:]]", ".")) %>%
+  mutate(vlrLiquido = as.numeric(vlrLiquido)) %>%
+  
+  na.omit()
 ```
 
 ## Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional?

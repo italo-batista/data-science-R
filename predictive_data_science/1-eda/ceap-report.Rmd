@@ -29,11 +29,6 @@ require(gridExtra)
 library(scales)
 library(tidyverse)
 
-# Substituindo víruglas por pontos
-data.ceap = data.ceap %>%
-  mutate(valorGlosa = str_replace_all(valorGlosa,"[[:punct:]]", ".")) %>%
-  mutate(valorGlosa = as.numeric(valorGlosa)) 
-
 # Definindo algumas constantes
 segment.y = 5000
 x.init = min(data.ceap %>% select(valorLíquido))
