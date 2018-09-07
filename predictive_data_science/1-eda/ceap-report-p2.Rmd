@@ -10,8 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Perguntas
-- 1. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?  
-- 2. Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?  
+- 1. Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?  
+- 2. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?  
 
 ## Importando dados
 
@@ -136,8 +136,8 @@ hchart(investiment.mn, "spline", hcaes(x = year, y = investiment)) %>%
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-require(tidyverse)
-require(scales)
+require(viridisLite)
+require(highcharter)
 
 max.year = max(data_ceap_by_year$year)
 min.year = min(data_ceap_by_year$year)
@@ -145,32 +145,29 @@ min.year = min(data_ceap_by_year$year)
 investiment.mn.filter.year = investiment.mn %>%
   filter(year <= max.year & year >= min.year)
 
-ggplot() +
-  geom_line(data= data_ceap_by_year, aes(x=year, y=totalExpenditure, group=tipoDespesa), linetype = 2, size=0.3) +
-  geom_line(data=investiment.mn.filter.year, aes(x=year, y=investiment), color="red") +
-  geom_point(data=investiment.mn.filter.year, aes(x=year, y=investiment), alpha=0.3) + 
-  scale_x_continuous(breaks=c(min.year:max.year))
-```
-
-```{r message=FALSE, warning=FALSE, error=FALSE}
-require(viridisLite)
-require(highcharter)
-
 colors = viridis(data_ceap_by_year %>% select(tipoDespesa) %>% distinct() %>% nrow())
 colors = substr(colors, 0, 7)
 
-title_text = "Comparing expenditure with politicians and investiment in National Museum"
+title_text = "Politicians' expenditures (by category) VS Investiment in National Museum"
 
 tooltip = paste("<b>Year:</b> {point.x}.<br/>",
                 "<b>Total Expenditure (R$):</b> {point.y}. <br/>",
                 "<b>Type Expenditure:</b> {point.tipoDespesa}.")
 
 highchart() %>%
-  hc_add_series(data_ceap_by_year, "column", hcaes(x = year, y = totalExpenditure, group = tipoDespesa)) %>%
-  hc_add_series(name = "Museu Nacional", investiment.mn.filter.year, "line", hcaes(x = year, y = investiment), color = COLOR_RED) %>%
+  hc_add_series(data = data_ceap_by_year, 
+                type = "spline", 
+                dashStyle = "shortdot", 
+                hcaes(x = year, y = totalExpenditure, group = tipoDespesa)) %>%
+  hc_add_series(name = "Museu Nacional", 
+                data = investiment.mn.filter.year, 
+                type = "spline", 
+                hcaes(x = year, y = investiment), 
+                color = COLOR_RED,
+                lineWidth = 4) %>%
   hc_chart(zoomType = "xy") %>%
   hc_colors(colors) %>%
-  hc_plotOptions(column = list(stacking = "normal"), series = list(marker = list(enabled = TRUE))) %>%
+  hc_plotOptions(spline = list(marker = list(symbol = "circle"))) %>%
   hc_tooltip(headerFormat = "", pointFormat = tooltip) %>%
   hc_title(text = title_text, style = list(fontSize = "18px"), align = "left") %>%
   hc_yAxis(title = list(text = "Total Expenditure (R$)")) %>%
