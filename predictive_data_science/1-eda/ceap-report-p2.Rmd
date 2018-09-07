@@ -20,6 +20,7 @@ Os dados foram baixados por meio [desta página](http://www2.camara.leg.br/trans
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(readr)
 require(here)
+require(tidyverse)
 
 data_folder = here::here("predictive_data_science/data/ceap")
 for(year in c(2009:2018)) {
@@ -27,16 +28,15 @@ for(year in c(2009:2018)) {
   path_to_data = paste(data_folder, file_name, sep="/")
   curr_data = read_delim(path_to_data, delim = ";", escape_double = FALSE, trim_ws = TRUE)
   
-  if (!exists("data.ceap")) {
-    data.ceap = curr_data
+  if (!exists("raw_data")) {
+    raw_data = curr_data
   } else {
-    data.ceap = rbind(data.ceap, curr_data)
+    raw_data = rbind(raw_data, curr_data)
   }
 }
 
 investiment.mn = read_delim(here::here("predictive_data_science/data/investimento-mn.csv"), 
                             delim="\t", escape_double = FALSE, trim_ws = TRUE)
-
 rm(curr_data)
 ```
 
@@ -54,15 +54,30 @@ data.ceap = data.ceap %>%
   # Selecionando apenas variáveis de interesse  
   select(varsOfInterest) %>%
 
-  # Substituindo víruglas por pontos
-  mutate(vlrLiquido = str_replace_all(vlrLiquido,"[[:punct:]]", ".")) %>%
-  mutate(vlrLiquido = as.numeric(vlrLiquido)) %>%
+preprocess_data = function(raw_data, varsOfInterest) {
+  data = raw_data %>%
   
-  # Renomeando algumas vars
-  mutate(year = numAno,
-         tipoDespesa = txtDescricao,
-         nomeParlamentar = txNomeParlamentar,
-         valorLíquido = vlrLiquido) 
+    # Selecting just vars on interest
+    select(varsOfInterest) %>%
+  
+    # Replacing commas for points
+    mutate(valorLíquido = as.numeric(gsub(",", ".", raw_data$vlrLiquido))) %>%
+    
+    # Renaming some vars
+    mutate(nomeParlamentar = txNomeParlamentar, year = numAno, month = numMes) %>%
+    select(-c(txNomeParlamentar, vlrLiquido, numAno, numMes)) %>%
+  
+    filter(!is.na(idecadastro)) %>%
+    
+    # Unify expenditures that are of similar categories with the aim of reduce number o categories
+    unify_expenditure_type
+  
+  return(data)
+}
+
+varsOfInterest = c("txNomeParlamentar", "idecadastro", "sgPartido", "sgUF", 
+                   "txtDescricao", "txtFornecedor", "vlrLiquido", "numAno", "numMes")
+data_ceap = preprocess_data(raw_data, varsOfInterest)
 ```
 
 ## Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional?
