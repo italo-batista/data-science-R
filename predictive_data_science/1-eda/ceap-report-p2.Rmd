@@ -106,7 +106,7 @@ data_ceap = preprocess_data(raw_data, varsOfInterest)
 require(lubridate)
 require(tidyverse)
 
-data.ceap.by.year = data.ceap %>%
+ data_ceap_by_year =  data_ceap %>%
   group_by(year, tipoDespesa) %>%
   summarise(totalExpenditure = sum(valorLíquido)) %>%
   ungroup() %>%
@@ -118,29 +118,35 @@ theme_set(theme_minimal())
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-investiment.mn %>%
-  ggplot(aes(x=year, y=investiment), fill="deepink") +
-  geom_point() + 
-  geom_line(linetype = 2) +
-  scale_x_continuous(breaks = c(2001:2018))
-```
+require(highcharter)
+    
+tltip.title = c("Year:", "Investiment (R$): ")
+tltip.vls = sprintf("{point.%s}", c("year", "investiment"))
+tltip <- tooltip_table(tltip.title, tltip.vls)
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
-
+hchart(investiment.mn, "spline", hcaes(x = year, y = investiment)) %>%
+  hc_plotOptions(
+    series  = list(
+      marker = list(enabled = TRUE, 'x'),
+      color = "#F50057")) %>%
+  hc_title(text = "Investimento ao Museu Nacional ao longo dos últimos anos") %>%
+  hc_yAxis(title = list(text = "Valor total do investimento (R$)")) %>%
+  hc_xAxis(title = list(text = "Ano")) %>%
+  hc_tooltip(table = TRUE, headerFormat = "", pointFormat = tltip)
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(tidyverse)
 require(scales)
 
-max.year = max(data.ceap.by.year$year)
-min.year = min(data.ceap.by.year$year)
+max.year = max( data_ceap_by_year$year)
+min.year = min( data_ceap_by_year$year)
 
 investiment.mn.filter.year = investiment.mn %>%
   filter(year <= max.year & year >= min.year)
 
 ggplot() +
-  geom_line(data=data.ceap.by.year, aes(x=year, y=totalExpenditure, group=tipoDespesa), linetype = 2, size=0.3) +
+  geom_line(data= data_ceap_by_year, aes(x=year, y=totalExpenditure, group=tipoDespesa), linetype = 2, size=0.3) +
   geom_line(data=investiment.mn.filter.year, aes(x=year, y=investiment), color="red") +
   geom_point(data=investiment.mn.filter.year, aes(x=year, y=investiment), alpha=0.3) + 
   scale_x_continuous(breaks=c(min.year:max.year))
@@ -148,9 +154,29 @@ ggplot() +
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
+require(viridisLite)
+require(highcharter)
 
-```
+cols <- viridis(33)
+cols <- substr(cols, 0, 7)
+    
+title_text = paste("Quantidade de alunos formados entre <i>", "</i>e<i>", "</i>")
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
+tooltip = paste("<b>Year:</b> {point.x}.<br/>",
+                "<b>Total Expenditure (R$):</b> {point.y}. <br/>",
+                "<b>Type Expenditure:</b> {point.tipoDespesa}.")
 
+hchart(data_ceap_by_year, "column", hcaes(x = year, y = totalExpenditure, group = tipoDespesa)) %>%
+         hc_chart(
+         zoomType = "xy"
+       ) %>%
+  hc_title(text = title_text, style = list(fontSize = "14px"), align = "left") %>%
+  hc_yAxis(title = list(text = "Número de formados")) %>%
+  hc_xAxis(labels = list(enabled = TRUE),
+           marker = list(enabled = TRUE)) %>%
+  hc_plotOptions(column = list(stacking = "normal"),
+                 series = list(marker = list(enabled = TRUE))) %>%
+  hc_legend(enabled = TRUE) %>%
+  hc_tooltip(headerFormat = "", pointFormat = tooltip) %>%
+  hc_colors(cols)
 ```
