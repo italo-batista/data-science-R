@@ -9,13 +9,19 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Perguntas
+No [relatório passado](http://rpubs.com/italohmb/ceap-report), começamos a analisar o uso da CEAP (Cota para Exercício da Atividade Parlamentar) pelos/as deputados/as. Iremos continuar investigando como os parlamentares têm usado esse auxílio.   
+Neste relatório, queremos responder a duas perguntas:
+
 - 1. Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?  
 - 2. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?  
+Para a primeira pergunta, esperamos que anos de eleição registrem gastos maiores, visto que, caso o deputado pretenda se reeleger, ele ou ela precisará divulgar mais suas atividades exercidas. Esperamos também que inícios de anos registrem os menos gastos, dada uma menor movimentação na Câmara dos Deputados. Esperamos também que as categorias com maiores gastos sejam a de passagens aéreas e de hospedagem de deputados.
+A nossa segunda pergunta tem como motivação um acontecimento recente: o incêndio no Museu Nacional (agos/2018). Nos dias seguintes ao fato, muito divulgou-se que um maior investimento público no museu poderia ter evitado tamanha tragédia. O Museu Nacional contava com um acervo muito rico, e quase todo ele foi perdido.   
+Diante deste contexto, esperamos que os gastos com os deputados sejam maiores que o investimento no museu.  
 
 ## Importando dados
 
-Os dados foram baixados por meio [desta página](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/dados-abertos-cota-parlamentar)
+Os dados da CEAP foram baixados por meio [desta página](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/dados-abertos-cota-parlamentar). Estamos usando dados que vão de 2009 a este ano.      
+Já os dados sobre o investimetno da União no museu foram retirados de alguns veículos jornalísticos ([link1](https://gazetaweb.globo.com/portal/noticia/2018/09/gasto-da-uniao-no-museu-nacional-caiu-mais-de-dez-vezes-desde-2011_60735.php), [link2](https://brasil.elpais.com/brasil/2018/09/04/politica/1536015210_491341.html?%3Fid_externo_rsoc=FB_BR_CM)).
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(readr)
@@ -42,6 +48,8 @@ rm(curr_data)
 
 
 ## Pré-processando
+
+Os gastos da CEAP podem ser classificados em diversas categorias. Como há muitas categorias e algumas delas se parecem (ex: emissão de bilhete aéreo e passagens aéreas), vamos agrupar a semelhantes em um tipo comum, para facilitar nosso entendimento. A função definida abaixo faz isso.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 unify_expenditure_type = function(data) {
@@ -71,6 +79,8 @@ unify_expenditure_type = function(data) {
 }
 ```
 
+Também não precisaremos de algumas variáveis de nossos dados. Vamos fazer uma pequena limpeza e algunas ajustes, para facilitar nosso trabalho daqui pra frente.
+
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(tidyverse)
 
@@ -81,7 +91,7 @@ preprocess_data = function(raw_data, varsOfInterest) {
     select(varsOfInterest) %>%
   
     # Replacing commas for points
-    mutate(valorLíquido = as.numeric(gsub(",", ".", raw_data$vlrLiquido))) %>%
+    mutate(valorLíquido = as.numeric(gsub(",", ".", vlrLiquido))) %>%
     
     # Renaming some vars
     mutate(nomeParlamentar = txNomeParlamentar, year = numAno, month = numMes) %>%
@@ -100,7 +110,10 @@ varsOfInterest = c("txNomeParlamentar", "idecadastro", "sgPartido", "sgUF",
 data_ceap = preprocess_data(raw_data, varsOfInterest)
 ```
 
-## Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?
+## Perguntas
+### 1.  Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?
+
+Vamos agrupar os dados por mês e ano e somar o valor dos gastos em cada categoria de despesa:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(viridisLite)
@@ -114,6 +127,8 @@ data_ceap_by_date = data_ceap %>%
   na.omit()
 ```
 
+Em seguinda, já podemos visualizar o gráfico que pode nos ajudar a responde nossa primeira pergunta:
+
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(viridisLite)
 require(highcharter)
@@ -122,7 +137,7 @@ require(lubridate)
 colors = viridis(data_ceap_by_date %>% select(tipoDespesa) %>% distinct() %>% nrow())
 colors = substr(colors, 0, 7)
 
-title_text = "Comparing expenditure with politicians and investiment in National Museum"
+title_text = "Use of CEAP by congressmen (by category of expenditure) over the last years"
 
 tooltip = paste("<b>Year:</b> {point.date}.<br/>",
                 "<b>Total Expenditure (R$):</b> {point.y}. <br/>",
@@ -139,18 +154,13 @@ highchart() %>%
   hc_xAxis(type = 'datetime', labels = list(format = '{value:%Y-%m}'))
 ```
 
-## Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?
+Uma das primeiras coisas que chamam atenção no gráfico é que há dois períodos de meses seguidos que registram gastos muito superior a todos os outros. Os anos de 2011 e 2012 são exemplos de um desses períodos. Nenhum desses anos representou ano de eleição para deputado federal. Então nossa hipótese primeira foi descartada. É preciso fazer uma pesquisa no contexto de uso desses gastos para entender o que pode ter motivado o crescimento e o descrimento exagerados do uso da CEAP.   
+Dentre as categorias com os maiores usos estão gastos com *passagens aéreas* (esperado), com telofonia e com combustível.
+Para 2009, 2011 e 2012, o primeiro mês é o que registra o menor total de gasto da  Se dermos zoom nos outros anos, identificaremos o mesmo padrão. Então podemos dizer que os primeiros meses sempre são o de menor uso da CEAP.
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
-require(lubridate)
-require(tidyverse)
+### 2. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?
 
- data_ceap_by_year =  data_ceap %>%
-  group_by(year, tipoDespesa) %>%
-  summarise(totalExpenditure = sum(valorLíquido)) %>%
-  ungroup() %>%
-  na.omit()
-```
+Por causa do gráfico anterior, já conhecemos um pouco os nossos dados da CEAP. Vamos agora ver os dados de investimento da União no Museu Nacional.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(highcharter)
@@ -168,10 +178,25 @@ hchart(investiment.mn, "spline", hcaes(x = year, y = investiment)) %>%
     series  = list(
       marker = list(enabled = TRUE, 'x'),
       color = COLOR_RED)) %>%
-  hc_title(text = "Investimento ao Museu Nacional ao longo dos últimos anos") %>%
-  hc_yAxis(title = list(text = "Valor total do investimento (R$)")) %>%
-  hc_xAxis(title = list(text = "Ano")) %>%
+  hc_title(text = "Investment in the National Museum over the last few years") %>%
+  hc_yAxis(title = list(text = "Total investiment (R$)")) %>%
+  hc_xAxis(title = list(text = "Year")) %>%
   hc_tooltip(table = TRUE, headerFormat = "", pointFormat = tltip)
+```
+
+Vemos que desde 2013 o investimento têm baixado, e os últimos três anos registram os menos investimentos desde 2001.
+
+Sobre os dados da CEAP, vamos agora agrupá-los apenas por ano e obter o valor total gasto em cada categoria.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(lubridate)
+require(tidyverse)
+
+ data_ceap_by_year =  data_ceap %>%
+  group_by(year, tipoDespesa) %>%
+  summarise(totalExpenditure = sum(valorLíquido)) %>%
+  ungroup() %>%
+  na.omit()
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
@@ -214,3 +239,6 @@ highchart() %>%
            marker = list(enabled = TRUE),
            categories = 2009:2018)
 ```
+
+As linhas pontilhadas represetam os gastos da CEAP por categoria, e alinha contínua vermelha representa o investimento no museu.  
+Já esperávemos que o investimento fosse menor. Mas acho que não esperávemos que fosse **tão menor**. A linha que representa o investimento no museu fica empurrada para o limite inferior do eixo y, tamanha é a diferença com o maior gasto total em uma categoria da CEAP (no ano de 2011, como estávamos esperando). Se tirarmos da seleção esses gastos (escritório, combustível, passagens aéreas e telefonia), ainda assim a linha irá parecer tocar o 0 no eixo y. Se formos tirando da seleção alguns gastos, iremos ver que o investimento no Museu Nacional só maior maior em 4 (de 15) tipos de despesas com deputados: cursos e paletras, passagens não aéreas, revistas e jornais e locomoção (até 2015). A disparidade é muito grande!
