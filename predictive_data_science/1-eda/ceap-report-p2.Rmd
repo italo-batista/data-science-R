@@ -100,6 +100,45 @@ varsOfInterest = c("txNomeParlamentar", "idecadastro", "sgPartido", "sgUF",
 data_ceap = preprocess_data(raw_data, varsOfInterest)
 ```
 
+## Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(viridisLite)
+require(highcharter)
+
+data_ceap_by_date = data_ceap %>%
+  mutate(date = as.Date.character(paste(year, month, "01", sep="-")), "%Y-%m-%d") %>%
+  group_by(date, tipoDespesa) %>%
+  summarise(totalExpenditure = sum(valorLíquido)) %>%
+  ungroup() %>%
+  na.omit()
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(viridisLite)
+require(highcharter)
+require(lubridate)
+
+colors = viridis(data_ceap_by_date %>% select(tipoDespesa) %>% distinct() %>% nrow())
+colors = substr(colors, 0, 7)
+
+title_text = "Comparing expenditure with politicians and investiment in National Museum"
+
+tooltip = paste("<b>Year:</b> {point.date}.<br/>",
+                "<b>Total Expenditure (R$):</b> {point.y}. <br/>",
+                "<b>Type Expenditure:</b> {point.tipoDespesa}.")
+
+highchart() %>%
+  hc_add_series(data_ceap_by_date, "column", hcaes(x = date, y = totalExpenditure, group = tipoDespesa)) %>%
+  hc_chart(zoomType = "xy") %>%
+  hc_colors(colors) %>%
+  hc_plotOptions(column = list(stacking = "normal"), series = list(marker = list(enabled = TRUE))) %>%
+  hc_tooltip(headerFormat = "", pointFormat = tooltip) %>%
+  hc_title(text = title_text, style = list(fontSize = "18px"), align = "left") %>%
+  hc_yAxis(title = list(text = "Total Expenditure (R$)")) %>%
+  hc_xAxis(type = 'datetime', labels = list(format = '{value:%Y-%m}'))
+```
+
 ## Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
