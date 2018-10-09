@@ -1,0 +1,170 @@
+---
+title: "Linear Regression"
+author: "Italo Batista"
+date: "7 de outubro de 2018"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: false
+    fig_heigth: 20
+  html_notebook:
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes       
+  pdf_document:
+    highlight: tango
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(here)
+library(dplyr)
+library(readr)
+
+here::set_here()
+
+elections_2006_2010 = readr::read_csv(
+  here::here("../data/tse/eleicoes_2006_e_2010.csv"),
+  local=readr::locale("br"),
+  col_types = cols(
+    ano = col_integer(),
+    sequencial_candidato = col_integer(),
+    quantidade_doacoes = col_integer(),
+    quantidade_doadores = col_integer(),
+    total_receita = col_double(),
+    media_receita = col_double(),
+    recursos_de_outros_candidatos.comites = col_double(),
+    recursos_de_pessoas_fisicas = col_double(),
+    recursos_de_pessoas_juridicas = col_double(),
+    recursos_proprios = col_double(),
+    `recursos_de_partido_politico` = col_double(),
+    quantidade_despesas = col_integer(),
+    quantidade_fornecedores = col_integer(),
+    total_despesa = col_double(),
+    media_despesa = col_double(),
+    votos = col_integer(),
+    .default = col_character())
+  )
+
+elections_2006 = elections_2006_2010 %>% filter(ano == 2006)
+elections_2010 = elections_2006_2010 %>% filter(ano == 2010)
+```
+
+## Treino, Validação e Teste
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+## set seed to make partition reproducible
+set.seed(123)
+
+# create a train, validation and tests from the original data frame 
+split_data = function(dataframe) {
+  assignment = sample(
+    1:3, size = nrow(elections_2010), 
+    prob = c(0.6, 0.2, 0.2), replace = TRUE)
+
+  smp_train = dataframe[assignment == 1, ]
+  smp_valid = dataframe[assignment == 2, ]
+  smp_test = dataframe[assignment == 3, ]
+  
+  return(list(smp_train, smp_valid, smp_test))
+}
+```
+
+## 1. Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos)
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+
+categorics_to_numerics = function(dataframe) {
+  without_categoricals = dataframe %>%
+    dplyr::mutate(
+      cargo = as.factor(as.integer(cargo)),
+      sexo = as.factor(as.integer(sexo)),
+      grau = as.factor(as.integer(grau)),
+      estado_civil = as.factor(as.integer(estado_civil)),
+      ocupacao = as.factor(as.integer(ocupacao)),
+      uf = as.factor(as.integer(uf)),
+      partido = as.factor(as.integer(partido)))
+  return(without_categoricals)
+}
+
+removing_categoricals = function(dataframe) {
+  return(
+    dataframe %>% select(
+      c(-nome, -cargo, -sexo, -grau, -estado_civil, -ocupacao, -uf, -partido, -sequencial_candidato)))
+}
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=8}
+without_categoricals = removing_categoricals(elections_2006_2010)
+
+library(corrplot)
+corr = cor(without_categoricals) %>% round(2)
+corrplot::corrplot(corr, method = "circle")
+```
+
+### 1.1 Em 2006
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+splitted = split_data(elections_2006)
+train_2006 = splitted[[1]]
+valid_2006 = splitted[[2]]
+test_2006 = splitted[[3]]
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+m_regression_linear_model = function(train_data) {
+  model_all_vars = lm(data = train_data, votos ~ ano 
+             + quantidade_doacoes 
+             + quantidade_doadores 
+             + total_receita 
+             + media_receita 
+             + recursos_de_outros_candidatos.comites 
+             + recursos_de_pessoas_fisicas 
+             + recursos_de_pessoas_juridicas 
+             + recursos_proprios
+             + recursos_de_partido_politico 
+             + quantidade_despesas 
+             + quantidade_fornecedores 
+             + total_despesa 
+             + media_despesa)
+  return(model_all_vars)
+}
+
+model_all_vars = m_regression_linear_model(train_2006)
+
+summary(model_all_vars)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+predictions = predict.lm(model_all_vars, valid_2006)
+
+predictions_plot = extendrange(c(valid_2006$votos, predictions)) +
+  plot(valid_2006$votos, predictions) +
+  abline(0, 1, col="blue", lty=2, lwd=2)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+residuos = valid_2006$votos - predictions
+
+residuos_plot = plot(predictions, residuos) +
+  abline(h=0,col="blue",lty=2,lwd=2)
+```
+
+### 1.2 Em 2010. 
+
+
+
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+```

@@ -13,7 +13,9 @@ No [relatório passado](http://rpubs.com/italohmb/ceap-report), começamos a ana
 Neste relatório, queremos responder a duas perguntas:
 
 - 1. Quais as datas (mes/ano) em que os deputados mais gastaram? Qual foi o tipo de despesa mais consumida?  
-- 2. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?  
+- 2. Quais os tipos de despesas com os deputados que, no total, foram maiores do que o investimento com o Museu Nacional nos úlitmos anos?
+
+
 Para a primeira pergunta, esperamos que anos de eleição registrem gastos maiores, visto que, caso o deputado pretenda se reeleger, ele ou ela precisará divulgar mais suas atividades exercidas. Esperamos também que inícios de anos registrem os menos gastos, dada uma menor movimentação na Câmara dos Deputados. Esperamos também que as categorias com maiores gastos sejam a de passagens aéreas e de hospedagem de deputados.
 A nossa segunda pergunta tem como motivação um acontecimento recente: o incêndio no Museu Nacional (agos/2018). Nos dias seguintes ao fato, muito divulgou-se que um maior investimento público no museu poderia ter evitado tamanha tragédia. O Museu Nacional contava com um acervo muito rico, e quase todo ele foi perdido.   
 Diante deste contexto, esperamos que os gastos com os deputados sejam maiores que o investimento no museu.  
