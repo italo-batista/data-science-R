@@ -342,3 +342,64 @@ library(caret)
 
 postResample(predictions, elections_2006$votos)
 ```
+
+### Quais variáveis conseguem explicar melhor o número de votos? Comparando entre os modelos. 
+
+Se retornarmos ao sumário dos modelos, perceberemos que muitas variáveis têm um p-valor maior que 0.05. Para essas variáveis, suas chances de estarem relacionadas à variável votos por aleatoriedade é muito alta. Desse modo, poderíamos ter um modelo com mesma significância porém mais simples se removêssemos essas variáveis com o p-valor maior que 0.05. Se assim procedermos, para 2006 ficaremos com: 
+
+- total_receita
+- media_receita
+- recursos_de_outros_candidatos.comites
+- recursos_de_pessoas_fisicas
+- recursos_de_pessoas_juridicas
+- recursos_proprios
+- total_despesa
+- sexo
+- ocupacao
+
+Para 2010, fazendo a mesmo análise, obtemos o mesmo conjunto de variáveis.
+
+## 3. Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes? Faça análises para 2006 e 2010 separadamente. 
+
+Para identificar se há variáveis redundantes, podemos avaliar a correlação entre elas. Se duas variáveis forem fortemente correlacioandas, então uma delas é redundante.
+
+Para 2006:
+
+```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=8}
+library(GGally)
+
+corr_plot = function(data) {
+  corr = data %>% remove_non_related_vars %>% cor() %>% round(2)
+  corr %>%
+    GGally::ggcorr(label_size = 3, label = TRUE, label_color = "black", hjust = 0.925, size = 3.5, angle = -45)
+}
+
+corr_plot(elections_2006)
+```
+
+Olhando para a linha de total_receita, percebemos que está consideralvemente correlacionadas com muitas outras variáveis, por exemplo:   
+
+- media_receita (0.8)
+- recursos_de_pessoas_fisicas (0.7)
+- recursos_de_pessoas_juridicas (1)
+- recursos_proprios (0.7)
+- quantidade_despesas (0.9)
+- quantidade_fornecedores (0.9)
+- total_depesa (1)
+
+Estamos usando o limite 0.7 para identificar redundância. Acima ou igual a esse valor estaremos classificando uma correlação como forte e portanto identificando uma relaçaõ redudante no contexto de nosso modelo.
+
+Há muitas outras áreas em vermelho no gráfico, sugerindo que outras variáveis também possuem considerável correlaçaõ entre si, a exemplo de quantidade_despesas e quantidade_fornecedores (1).   
+Se muitas variáveis independentes são redundantes, não podemos avaliar bem a participação de cada uma delas para explicar a variável alvo (no nosso caso, `votos`), pois diferentes variáveis têm o mesmo efeito na mesma parcela de dados da variável dependente (`voto`).
+
+Vamos agora avaliar considerando os dados de 2010:
+
+```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=8}
+corr_plot(elections_2010)
+```
+
+A situação é bastante parecida com o caso de 2006.
+
+## 4. No caso de haver variáveis pouco explicativas e/ou redudantes, construa um novo modelo sem essas variáveis e o compare ao modelo com todas as variáveis (e.g. em termos de R2 e RSE). Faça isso para 2006 e 2010 separadamente. 
+
+## 5. Construa agora uma regressão considerando os anos 2006 e 2010 em conjunto. Que diferenças/semelhanças você percebe em relação aos modelos individuais por ano? Veja a questão 2 para sugestões que você usar para comparação.
