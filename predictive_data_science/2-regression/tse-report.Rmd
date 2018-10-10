@@ -233,17 +233,112 @@ test_2010  = splitted[[3]]
 model_all_vars_2010 = regression_linear_model_all_vars(train_2010)
 ```
 
+
+
+## 2. Comparando e avaliando regressões
+### Em 2006 
+
+#### Analisando predição
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+  predictions = predict.lm(model_all_vars_2006, valid_2006)
+  votos = valid_2006$votos
+  
+  predictions_plot = extendrange(c(votos, predictions)) +
+    plot(votos, predictions, main="Resíduos vs. Predições") +
+    abline(0, 1, col="blue", lty=2, lwd=2)
+```
+R: Quanto melhor o modelo mais próximos da linha azul estão os pontos. Há muitos pontos distantes.
+
+#### Analisan resíduos
+
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 residuos = valid_2006$votos - predictions
 
-residuos_plot = plot(predictions, residuos) +
+residuos_plot = plot(predictions, residuos, main="Análise de Resíduos") +
   abline(h=0,col="blue",lty=2,lwd=2)
 ```
+R: Quanto melhor o modelo mais próximos da linha azul estão os pontos. Os pontos devem estar dispersos simetricamente em relação à linha azul. You want this to look like a shapeless cloud. If there are outliers it means you've gotten some things very wrong, and if there's a clear pattern it usually means you've picked the wrong type of model
 
-### 1.2 Em 2010. 
-
-
-
+Se têm variância constante;
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
+require(ggplot2)
+
+residuos_adj_plot = ggplot(model_all_vars_2006, aes(.fitted, .resid)) +
+  geom_point() +
+  geom_hline(yintercept=0, col="red", linetype="dashed") + 
+  xlab("Valores ajustados") + ylab("Resíduos") + 
+  ggtitle("Gráfico de Resíduos vs Ajustamento") + 
+  theme_bw()
+residuos_adj_plot
+```
+R: Sem padrão nos resíduos.Com nosso modelo inicial podemos observar que o R² ajustado é 0.4785, ou seja, o modelo explica 47.85% dos dados, assim podemos afirmar que este modelo é razoável para explicar a quantidade de votos de um candidato. Porém, o modelo não satisfaz o pressuposto de normalidade na distribuição dos resíduos.
+
+Se têm distribuição normal:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+normal_plot = qqnorm(model_all_vars_2006$residuals)
+qqline(model_all_vars_2006$residuals, col = 2,lwd=2,lty=2)
+```
+
+R: qqplot muito desajustado justado à linha reta. Não está OK. For this plot you want to see the residuals lined up along the a diagonal line that goes from the bottom left to top right. If they're strongly off that line, especially in one corner, it means you have a strong skew in your data. 
+
+Calculando RMSE e R2:
+
+```{r}
+library(caret)
+
+postResample(predictions, elections_2006$votos)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+summary(model_all_vars_2006)
+```
+
+### Em 2010
+
+```{r}
+summary(model_all_vars_2006)
+```
+
+```{r}
+
+diagnostic_plots = function(model, valid_set) {
+  
+  Predictions = predict.lm(model, valid_set)
+  Votos = valid_set$votos
+  predictions_plot = extendrange(c(Votos, Predictions)) +
+    plot(Votos, Predictions, main="Resíduos vs Predição") +
+    abline(0, 1, col="blue", lty=2, lwd=2)
+  predictions_plot
+  
+  Residuos = Votos - Predictions
+  residuos_plot = plot(Predictions, Residuos) +
+    abline(h=0,col="blue",lty=2,lwd=2, main="Análise de Resíduos")
+  residuos_plot
+  
+  residuos_adj_plot = ggplot(model, aes(.fitted, .resid)) +
+    geom_point() +
+    geom_hline(yintercept=0, col="red", linetype="dashed") + 
+    xlab("Valores ajustados") + ylab("Resíduos") + 
+    ggtitle("Gráfico de Resíduos vs Ajustamento") + 
+    theme_bw()
+  plot(residuos_adj_plot)
+  
+  normal_plot = qqnorm(model$residuals)
+  qqline(model$residuals, col = 2,lwd=2,lty=2)
+}
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+diagnostic_plots(model_all_vars_2010, valid_2006)
+```
+
+Calculando RMSE e R2:
+
+```{r}
+library(caret)
+
+postResample(predictions, elections_2006$votos)
 ```
