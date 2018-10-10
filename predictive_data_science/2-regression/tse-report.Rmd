@@ -172,77 +172,65 @@ create_train_validate_test = function(dataframe) {
 }
 ```
 
-## 1. Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos)
+## 1. Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos)?
+
+De certo modo já respondemos a essa pergunta. Mais acima, avaliamos que as variáveis abaixo não seriam significantes para a predição:
+
+- sequencial_candidato
+- nome
+- cargo
+
+Ainda pode haver outras variáveis que também não são boas preditoras. Para poder identificá-las, iremos gerar o modelo e posteriomente avaliá-lo.
+
+### Construindo o modelo
+
+#### 1.1 Em 2006
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
+## set seed to make partition reproducible
+set.seed(123)
 
-categorics_to_numerics = function(dataframe) {
-  without_categoricals = dataframe %>%
-    dplyr::mutate(
-      cargo = as.factor(as.integer(cargo)),
-      sexo = as.factor(as.integer(sexo)),
-      grau = as.factor(as.integer(grau)),
-      estado_civil = as.factor(as.integer(estado_civil)),
-      ocupacao = as.factor(as.integer(ocupacao)),
-      uf = as.factor(as.integer(uf)),
-      partido = as.factor(as.integer(partido)))
-  return(without_categoricals)
-}
-
-removing_categoricals = function(dataframe) {
-  return(
-    dataframe %>% select(
-      c(-nome, -cargo, -sexo, -grau, -estado_civil, -ocupacao, -uf, -partido, -sequencial_candidato)))
-}
-```
-
-```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=8}
-without_categoricals = removing_categoricals(elections_2006_2010)
-
-library(corrplot)
-corr = cor(without_categoricals) %>% round(2)
-corrplot::corrplot(corr, method = "circle")
-```
-
-### 1.1 Em 2006
-
-```{r message=FALSE, warning=FALSE, error=FALSE}
-splitted = split_data(elections_2006)
+splitted = create_train_validate_test(elections_2006)
 train_2006 = splitted[[1]]
 valid_2006 = splitted[[2]]
 test_2006 = splitted[[3]]
 ```
 
+
+
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-m_regression_linear_model = function(train_data) {
-  model_all_vars = lm(data = train_data, votos ~ ano 
-             + quantidade_doacoes 
-             + quantidade_doadores 
-             + total_receita 
-             + media_receita 
-             + recursos_de_outros_candidatos.comites 
-             + recursos_de_pessoas_fisicas 
-             + recursos_de_pessoas_juridicas 
-             + recursos_proprios
-             + recursos_de_partido_politico 
-             + quantidade_despesas 
-             + quantidade_fornecedores 
-             + total_despesa 
-             + media_despesa)
-  return(model_all_vars)
+remove_non_related_vars = function(data) {
+    return(
+    data %>%
+      select(-c(ano, nome, sequencial_candidato, cargo))
+  )
 }
-
-model_all_vars = m_regression_linear_model(train_2006)
-
-summary(model_all_vars)
 ```
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
-predictions = predict.lm(model_all_vars, valid_2006)
 
-predictions_plot = extendrange(c(valid_2006$votos, predictions)) +
-  plot(valid_2006$votos, predictions) +
-  abline(0, 1, col="blue", lty=2, lwd=2)
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+regression_linear_model_all_vars = function(train_data) {
+  filtered_traind_data = train_data %>% remove_non_related_vars
+  model_all_vars_2006 = lm(data = filtered_traind_data, votos ~ .)
+  return(model_all_vars_2006)
+}
+
+model_all_vars_2006 = regression_linear_model_all_vars(train_2006)
+```
+
+
+
+
+#### 1.2 Em 2010. 
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+splitted = create_train_validate_test(elections_2010)
+train_2010 = splitted[[1]]
+valid_2010 = splitted[[2]]
+test_2010  = splitted[[3]]
+
+model_all_vars_2010 = regression_linear_model_all_vars(train_2010)
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
