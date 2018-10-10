@@ -5,10 +5,6 @@ date: "7 de outubro de 2018"
 output:
   rmdformats::readthedown:
     highlight: kate
-    self_contained: true
-    thumbnails: false
-    lightbox: true
-    gallery: false
     fig_heigth: 20
   html_notebook:
     toc: yes
@@ -26,6 +22,8 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+## Importando dados
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 library(here)
@@ -56,19 +54,112 @@ elections_2006_2010 = readr::read_csv(
     votos = col_integer(),
     .default = col_character())
   )
+```
 
+## Conhecendo os dados
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+elections_2006_2010 %>%
+  glimpse()
+```
+
+Existem 26 variáveis no nosso data frame e o seus significados são:
+
+- “Sequencial_candidato”: (character) id do candidato
+- “Nome”:
+- “Numero_cadidato”: (character)
+- “UF”: (character)
+- “Partido”: (character)
+- “Setor_economico_receita” : (character) setor econômico que mais doou (em quantidade de vezes) para o candidato;
+- “Quantidade_doacoes”: (integer)
+- “Quantidade_doadores”: (integer) número de doadores diferentes
+- “Total_receita”: (double) soma em R$ das doações
+- “Media_receita”: (double) média das doações
+- “recursos_de_outros_candidatos/comites”: (double) quantia em R$ das doações provenientes de outros candidatos ou comite partidário
+- “Recursos_de_partidos”: (double) quantia em R$ das doações provenientes de outros candidatos ou partidos
+- “Recursos_de_pessoas_físicas”: (double) quantia em R$ das doações provenientes de outros CPFs
+- “Recursos_de_pessoas_juridicas”: (double) quantia em R$ das doações provenientes de outros CNPJ
+- “Recursos_proprios”: (double) quantia em R$ das doações provenientes do próprio candidato
+- “Votos”: (integer) variável alvo. Se refere ao número de votos na campanha de 2014
+- “Quantidade_despesas”: (integer)
+- “Quantidade_fornecedores”: (integer) número de fornecedores/despesas diferentes
+- “Total_despesa”: (double) soma em R$ das despesas de campanha
+- “Media_despesa”: (double) média das despesas de campanha
+- “Setor_economico_despesa”: (character) setor econômico que o candidato mais gastou na campanha (em quantidade de vezes);
+- “Cargo”: (character)
+- “Idade”: (int)
+- “Sexo”: (character)
+- “Grau”: (character)
+- “Estado_civil”: (character)
+
+Pela descrição, esperamos que algumas variáveis, como `nome` e `sequencial_candidato`, não influenciem na quantidade de votos. A var `cargo` também não influencia, pois todos as obersações tratam de deputados federais. No nosso primeiro modelo, não iremos utilizar tais variáveis, dado que já esperamos nenhum relacionamento entre elas e a variável `voto`.
+
+Vamos plotar a distribuição das variáveis, desconsiderando as variáveis categóricas.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(reshape2)
+library(ggplot2)
+library(scales)
+
+remove_categorical_vars_converted = function(data) {
+  return(
+    data %>%
+      select(-c(nome, uf, partido, cargo, sexo, grau, estado_civil, ocupacao))
+  )
+}
+
+reshaped_data = 
+  reshape2::melt(
+    elections_2006_2010 %>%
+      remove_categorical_vars_converted)
+
+ggplot2::ggplot(reshaped_data, aes(x = value)) + 
+  facet_wrap(~variable) + 
+  geom_histogram() +
+  scale_y_continuous(label = scales::unit_format(unit = "k", scale = 1e-3))  +
+  scale_x_continuous(label = scales::unit_format(unit = "k", scale = 1e-3), limits = c(-1000, 10000))  +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+No geral a maioria dos valores das variáveis se concentram ao redor de 0. Esse não é o caso de votos. Votos tem um comportamento mais parecido com total_despesa, media_despesa, total_receita e media_receita.
+
+## Pré-processando 
+
+Convertendo vars categóricas em numéricas
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+categorics_to_numerics = function(dataframe) {
+  converted_cols = dataframe %>%
+    dplyr::mutate(
+    uf = as.numeric(as.factor(uf)),
+    nome = as.numeric(as.factor(nome)),
+    partido = as.numeric(as.factor(partido)),
+    grau = as.numeric(as.factor(grau)),
+    estado_civil = as.numeric(as.factor(estado_civil)),
+    ocupacao = as.numeric(as.factor(ocupacao)),
+    cargo = as.numeric(as.factor(cargo)),
+    sexo = as.numeric(as.factor(sexo)),
+    sequencial_candidato = as.numeric(as.factor(sequencial_candidato)))
+  return(converted_cols)
+}
+
+elections_2006_2010 = elections_2006_2010 %>% categorics_to_numerics
+```
+
+Filtrando para gerar dois datasets, um para cada ano (2006 e 2010).
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
 elections_2006 = elections_2006_2010 %>% filter(ano == 2006)
 elections_2010 = elections_2006_2010 %>% filter(ano == 2010)
 ```
 
 ## Treino, Validação e Teste
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
-## set seed to make partition reproducible
-set.seed(123)
+Criando uma função auxiliar para dividir um dataset de entrada em três de saída (treino, validação e teste).
 
+```{r message=FALSE, warning=FALSE, error=FALSE}
 # create a train, validation and tests from the original data frame 
-split_data = function(dataframe) {
+create_train_validate_test = function(dataframe) {
   assignment = sample(
     1:3, size = nrow(elections_2010), 
     prob = c(0.6, 0.2, 0.2), replace = TRUE)
