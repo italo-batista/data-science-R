@@ -23,6 +23,8 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Nesta análise iremos explorar dados sobre as votações que candidatos à Câmara Federal de Deputados receberam nos anos de 2006 e 2010. A nossa tarefa é usar Regressão Linear para explicar essas votações. Esses dados foram extraídos do [TSE](http://www.tse.jus.br/hotSites/pesquisas-eleitorais/index.html), pré-processados e contemplam informações sobre aproximadamente 7.300 candidatos.
+
 ## Importando dados
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
@@ -180,11 +182,13 @@ De certo modo já respondemos a essa pergunta. Mais acima, avaliamos que as vari
 - nome
 - cargo
 
-Ainda pode haver outras variáveis que também não são boas preditoras. Para poder identificá-las, iremos gerar o modelo e posteriomente avaliá-lo.
+Ainda pode haver outras variáveis que também não são boas preditoras. Para poder identificá-las, iremos gerar o modelo e posteriormente avaliá-lo.
 
 ### Construindo o modelo
 
 #### 1.1 Em 2006
+
+Dividindo os dados e criando o set para treino do modelo:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 ## set seed to make partition reproducible
@@ -196,7 +200,7 @@ valid_2006 = splitted[[2]]
 test_2006 = splitted[[3]]
 ```
 
-
+Função para não usar as variáveis que já julgamos como ruins preditoras.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 remove_non_related_vars = function(data) {
@@ -207,7 +211,7 @@ remove_non_related_vars = function(data) {
 }
 ```
 
-
+Instanciando o modelo:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 regression_linear_model_all_vars = function(train_data) {
@@ -222,7 +226,9 @@ model_all_vars_2006 = regression_linear_model_all_vars(train_2006)
 
 
 
-#### 1.2 Em 2010. 
+#### 1.2 Para eleições de 2010. 
+
+Dividindo os dados e criando o set para treino do modelo:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 splitted = create_train_validate_test(elections_2010)
@@ -236,7 +242,8 @@ model_all_vars_2010 = regression_linear_model_all_vars(train_2010)
 
 
 ## 2. Comparando e avaliando regressões
-### Em 2006 
+
+### 2.1 Para eleições de 2006
 
 #### Analisando predição
 
@@ -248,9 +255,10 @@ model_all_vars_2010 = regression_linear_model_all_vars(train_2010)
     plot(votos, predictions, main="Resíduos vs. Predições") +
     abline(0, 1, col="blue", lty=2, lwd=2)
 ```
-R: Quanto melhor o modelo mais próximos da linha azul estão os pontos. Há muitos pontos distantes.
 
-#### Analisan resíduos
+A linha azul representa o modelo e os pontos são as predições feitas com o set de dados de validação (diferente do set usado para treinar o modelo). A ideia aqui é que quanto mais próximos os pontos da linha azul, melhor o modelo. Como há pontos bastante distantes, então o modelo parece não descrever bem os dados.
+
+#### Analisando resíduos
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 residuos = valid_2006$votos - predictions
@@ -258,49 +266,35 @@ residuos = valid_2006$votos - predictions
 residuos_plot = plot(predictions, residuos, main="Análise de Resíduos") +
   abline(h=0,col="blue",lty=2,lwd=2)
 ```
-R: Quanto melhor o modelo mais próximos da linha azul estão os pontos. Os pontos devem estar dispersos simetricamente em relação à linha azul. You want this to look like a shapeless cloud. If there are outliers it means you've gotten some things very wrong, and if there's a clear pattern it usually means you've picked the wrong type of model
 
-Se têm variância constante;
+É possível perceber que os resíduos não são simétricos e possuem um padrão de comportamento (o ideal é que fossem aleatórios). Isso indica que o modelo ainda precisa de aprimoramentos e transformações.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-require(ggplot2)
-
-residuos_adj_plot = ggplot(model_all_vars_2006, aes(.fitted, .resid)) +
-  geom_point() +
-  geom_hline(yintercept=0, col="red", linetype="dashed") + 
-  xlab("Valores ajustados") + ylab("Resíduos") + 
-  ggtitle("Gráfico de Resíduos vs Ajustamento") + 
-  theme_bw()
-residuos_adj_plot
+residuos_fit_plot = plot(model_all_vars_2006, which = 1)
 ```
-R: Sem padrão nos resíduos.Com nosso modelo inicial podemos observar que o R² ajustado é 0.4785, ou seja, o modelo explica 47.85% dos dados, assim podemos afirmar que este modelo é razoável para explicar a quantidade de votos de um candidato. Porém, o modelo não satisfaz o pressuposto de normalidade na distribuição dos resíduos.
 
-Se têm distribuição normal:
+O objetivo deste gráfico é verificar a não existência de padrão no comportamento dos erros, já que esses erros devem ser aleatórios. Aqui novamente identifica-se padrão nos erros.    
+
+O próximo gráfico procura identificar se os resíduos têm distribuição normal:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 normal_plot = qqnorm(model_all_vars_2006$residuals)
 qqline(model_all_vars_2006$residuals, col = 2,lwd=2,lty=2)
 ```
 
-R: qqplot muito desajustado justado à linha reta. Não está OK. For this plot you want to see the residuals lined up along the a diagonal line that goes from the bottom left to top right. If they're strongly off that line, especially in one corner, it means you have a strong skew in your data. 
+Aqui vemos que os pontos estão muito desajustados à linha reta, o que não é a situação ideal. Perceba que os pontos se curvam nas extremidades. Isso pode significar que nossos dados possuem mais valores extremos do que esperado caso tivessem uma distribuição normal.    
 
-Calculando RMSE e R2:
-
-```{r}
-library(caret)
-
-postResample(predictions, elections_2006$votos)
-```
+Sumarizando o modelo:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 summary(model_all_vars_2006)
 ```
 
-### Em 2010
+Este sumário trás dois importantes índices: o RSE (residual standard error) e o R² (R-squared). O primeiro fornece uma medida absoluta de falta de ajuste do modelo aos dados. Já o R² indica a proporção da variabilidade da variável alvo explicada pelo modelo. No caso do modelo acima, por exemplo, ele explica 48% dos dados, assim podemos afirmar que este modelo é razoável para explicar a quantidade de votos de um candidato. 
 
-```{r}
-summary(model_all_vars_2006)
-```
+### 2.2 Para eleições de 2010
+
+Plotando os gráficos de diagnóstico:
 
 ```{r}
 
@@ -314,17 +308,11 @@ diagnostic_plots = function(model, valid_set) {
   predictions_plot
   
   Residuos = Votos - Predictions
-  residuos_plot = plot(Predictions, Residuos) +
-    abline(h=0,col="blue",lty=2,lwd=2, main="Análise de Resíduos")
+  residuos_plot = plot(Predictions, Residuos, main="Análise de Resíduos") +
+    abline(h=0,col="blue",lty=2,lwd=2)
   residuos_plot
   
-  residuos_adj_plot = ggplot(model, aes(.fitted, .resid)) +
-    geom_point() +
-    geom_hline(yintercept=0, col="red", linetype="dashed") + 
-    xlab("Valores ajustados") + ylab("Resíduos") + 
-    ggtitle("Gráfico de Resíduos vs Ajustamento") + 
-    theme_bw()
-  plot(residuos_adj_plot)
+  residuos_fit_plot = plot(model, which = 1)
   
   normal_plot = qqnorm(model$residuals)
   qqline(model$residuals, col = 2,lwd=2,lty=2)
@@ -335,17 +323,19 @@ diagnostic_plots = function(model, valid_set) {
 diagnostic_plots(model_all_vars_2010, valid_2006)
 ```
 
-Calculando RMSE e R2:
+Percebe-se que os mesmos problemas enfrentados para o modelo do ano de 2006 são encontrados para este modelo também (assimetria e padronização dos resíduos, comportamento foge da distribuição normal, etc).
+
+Sumarizando:
 
 ```{r}
-library(caret)
-
-postResample(predictions, elections_2006$votos)
+summary(model_all_vars_2010)
 ```
 
-### Quais variáveis conseguem explicar melhor o número de votos? Comparando entre os modelos. 
+O R² para os dados de 2010 é menor que aquele para os dados de 2006.   
 
-Se retornarmos ao sumário dos modelos, perceberemos que muitas variáveis têm um p-valor maior que 0.05. Para essas variáveis, suas chances de estarem relacionadas à variável votos por aleatoriedade é muito alta. Desse modo, poderíamos ter um modelo com mesma significância porém mais simples se removêssemos essas variáveis com o p-valor maior que 0.05. Se assim procedermos, para 2006 ficaremos com: 
+### Quais variáveis conseguem explicar melhor o número de votos?
+
+Se retornarmos ao sumário dos modelos, perceberemos que muitas variáveis têm um p-valor maior que 0.05. Para essas variáveis, suas chances de estarem relacionadas à variável voto por aleatoriedade é muito alta. Desse modo, poderíamos ter um modelo com mesma significância porém mais simples se removêssemos essas variáveis com o p-valor maior que 0.05. Se assim procedermos, para 2006 ficaremos com: 
 
 - total_receita
 - media_receita
@@ -357,13 +347,29 @@ Se retornarmos ao sumário dos modelos, perceberemos que muitas variáveis têm 
 - sexo
 - ocupacao
 
-Para 2010, fazendo a mesmo análise, obtemos o mesmo conjunto de variáveis.
+Para 2010, fazendo a mesmo análise, obtemos o seguinte conjunto:
 
-## 3. Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes? Faça análises para 2006 e 2010 separadamente. 
+- uf
+- partido
+- quantidade_doacoes
+- quantidade_doadores
+- total_receita
+- media_receita
+- recursos_de_outros_candidatos.comites
+- recursos_de_pessoas_fisicas
+- quantidade_fornecedores
+- total_despesa
+- media_despesa
+- sexo
+- grau
+
+Para responder à pergunta, é também interessante olhar a correlação entre a feature/variável independente e a variável alvo/dependent (nesse caos, votos). Faremos isso a seguir.
+
+## 3. Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes?
 
 Para identificar se há variáveis redundantes, podemos avaliar a correlação entre elas. Se duas variáveis forem fortemente correlacioandas, então uma delas é redundante.
 
-Para 2006:
+### Para 2006:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=8}
 library(GGally)
@@ -392,7 +398,7 @@ Estamos usando o limite 0.7 para identificar redundância. Acima ou igual a esse
 Há muitas outras áreas em vermelho no gráfico, sugerindo que outras variáveis também possuem considerável correlaçaõ entre si, a exemplo de quantidade_despesas e quantidade_fornecedores (1).   
 Se muitas variáveis independentes são redundantes, não podemos avaliar bem a participação de cada uma delas para explicar a variável alvo (no nosso caso, `votos`), pois diferentes variáveis têm o mesmo efeito na mesma parcela de dados da variável dependente (`voto`).
 
-Vamos agora avaliar considerando os dados de 2010:
+### Vamos agora avaliar considerando os dados de 2010:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=8}
 corr_plot(elections_2010)
@@ -400,6 +406,82 @@ corr_plot(elections_2010)
 
 A situação é bastante parecida com o caso de 2006.
 
-## 4. No caso de haver variáveis pouco explicativas e/ou redudantes, construa um novo modelo sem essas variáveis e o compare ao modelo com todas as variáveis (e.g. em termos de R2 e RSE). Faça isso para 2006 e 2010 separadamente. 
+## 4. Construindo um novo modelo sem as variáveis redudantes
 
-## 5. Construa agora uma regressão considerando os anos 2006 e 2010 em conjunto. Que diferenças/semelhanças você percebe em relação aos modelos individuais por ano? Veja a questão 2 para sugestões que você usar para comparação.
+Existem alguns algortimos amplamente usados para realizar seleção de features para modelos, a exemplo de LASSO e Elastic Net. Para este relatório, contudo, por simplicidade, utilizamos algumas abordagens de caráter mais força bruta. Para decidir quais features redundantes não usar no nosso modelo, consideramos também o p-valor e a correlação da variável e com a variável alvo.
+
+### Modelo para os dados de 2006
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+input = train_2006 %>% 
+  remove_non_related_vars %>%
+  select(votos, recursos_proprios, total_despesa, quantidade_doadores, recursos_de_pessoas_fisicas)
+
+final_model_2006 = lm(data = input, formula = votos ~ .)
+```
+
+Avaliando RSE e R2:
+
+```{r}
+summary(final_model_2006)
+```
+
+Em comparação ao modelo anterior para 2006, com todas mais variáveis, o RSE aumentou e o R² diminui aproximadamente 0.06. O modelo tornou-se um pouco menos significativo sem as variáveis redundantes.
+
+### Modelo sem variáveis redundantes para os dados de 2010
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+input = train_2010 %>% 
+  remove_non_related_vars %>%
+  select(votos, total_despesa, recursos_de_outros_candidatos.comites, recursos_proprios, media_receita)
+
+final_model_2010 = lm(data = input, formula = votos ~ .)
+```
+
+Avaliando RSE e R²:
+
+```{r}
+summary(final_model_2010)
+```
+
+Para 2010, o impacto de tirar as variáveis redundantes foi muito insignificativo. O RSE aumentou pouco e o R² diminui pouquíssimo. Dado que o modelo tornou-se muito mais simples, retirar as variáveis redundantes foi bom.
+
+
+## 5. Construindo uma regressão considerando os anos 2006 e 2010 em conjunto, que diferenças/semelhanças você percebe em relação aos modelos individuais por ano?
+
+Separando entre dados de treino, validação e teste:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+set.seed(123)
+
+splitted = create_train_validate_test(elections_2006_2010)
+train_set = splitted[[1]]
+valid_set = splitted[[2]]
+test_set = splitted[[3]]
+```
+
+Construindo o modelo:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+linear_regression_model = lm(data = train_set, 
+                             formula = 
+                               votos ~ 
+                               total_despesa + 
+                               sqrt(total_despesa) +
+                               quantidade_doadores + 
+                               recursos_proprios + 
+                               total_despesa * quantidade_doadores + 
+                               total_despesa * recursos_proprios)
+```
+
+Avaliando o modelo:
+
+```{r}
+diagnostic_plots(linear_regression_model, valid_set)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+summary(linear_regression_model)
+```
+
+A análise dos resíduos indica que o modelo não teve melhoras significantes. A distribuíção dos resíduos ainda foge da distribuição normal nas extremidades. Mas os índices RSE e R² indicam que o modelo pode obter resultados melhores.
