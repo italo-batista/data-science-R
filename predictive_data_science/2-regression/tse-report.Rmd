@@ -1,0 +1,487 @@
+---
+title: "Linear Regression"
+author: "Italo Batista"
+date: "7 de outubro de 2018"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    fig_heigth: 20
+  html_notebook:
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes       
+  pdf_document:
+    highlight: tango
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Nesta análise iremos explorar dados sobre as votações que candidatos à Câmara Federal de Deputados receberam nos anos de 2006 e 2010. A nossa tarefa é usar Regressão Linear para explicar essas votações. Esses dados foram extraídos do [TSE](http://www.tse.jus.br/hotSites/pesquisas-eleitorais/index.html), pré-processados e contemplam informações sobre aproximadamente 7.300 candidatos.
+
+## Importando dados
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(here)
+library(dplyr)
+library(readr)
+
+here::set_here()
+
+elections_2006_2010 = readr::read_csv(
+  here::here("../data/tse/eleicoes_2006_e_2010.csv"),
+  local=readr::locale("br"),
+  col_types = cols(
+    ano = col_integer(),
+    sequencial_candidato = col_integer(),
+    quantidade_doacoes = col_integer(),
+    quantidade_doadores = col_integer(),
+    total_receita = col_double(),
+    media_receita = col_double(),
+    recursos_de_outros_candidatos.comites = col_double(),
+    recursos_de_pessoas_fisicas = col_double(),
+    recursos_de_pessoas_juridicas = col_double(),
+    recursos_proprios = col_double(),
+    `recursos_de_partido_politico` = col_double(),
+    quantidade_despesas = col_integer(),
+    quantidade_fornecedores = col_integer(),
+    total_despesa = col_double(),
+    media_despesa = col_double(),
+    votos = col_integer(),
+    .default = col_character())
+  )
+```
+
+## Conhecendo os dados
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+elections_2006_2010 %>%
+  glimpse()
+```
+
+Existem 26 variáveis no nosso data frame e o seus significados são:
+
+- “Sequencial_candidato”: (character) id do candidato
+- “Nome”:
+- “Numero_cadidato”: (character)
+- “UF”: (character)
+- “Partido”: (character)
+- “Setor_economico_receita” : (character) setor econômico que mais doou (em quantidade de vezes) para o candidato;
+- “Quantidade_doacoes”: (integer)
+- “Quantidade_doadores”: (integer) número de doadores diferentes
+- “Total_receita”: (double) soma em R$ das doações
+- “Media_receita”: (double) média das doações
+- “recursos_de_outros_candidatos/comites”: (double) quantia em R$ das doações provenientes de outros candidatos ou comite partidário
+- “Recursos_de_partidos”: (double) quantia em R$ das doações provenientes de outros candidatos ou partidos
+- “Recursos_de_pessoas_físicas”: (double) quantia em R$ das doações provenientes de outros CPFs
+- “Recursos_de_pessoas_juridicas”: (double) quantia em R$ das doações provenientes de outros CNPJ
+- “Recursos_proprios”: (double) quantia em R$ das doações provenientes do próprio candidato
+- “Votos”: (integer) variável alvo. Se refere ao número de votos na campanha de 2014
+- “Quantidade_despesas”: (integer)
+- “Quantidade_fornecedores”: (integer) número de fornecedores/despesas diferentes
+- “Total_despesa”: (double) soma em R$ das despesas de campanha
+- “Media_despesa”: (double) média das despesas de campanha
+- “Setor_economico_despesa”: (character) setor econômico que o candidato mais gastou na campanha (em quantidade de vezes);
+- “Cargo”: (character)
+- “Idade”: (int)
+- “Sexo”: (character)
+- “Grau”: (character)
+- “Estado_civil”: (character)
+
+Pela descrição, esperamos que algumas variáveis, como `nome` e `sequencial_candidato`, não influenciem na quantidade de votos. A var `cargo` também não influencia, pois todos as obersações tratam de deputados federais. No nosso primeiro modelo, não iremos utilizar tais variáveis, dado que já esperamos nenhum relacionamento entre elas e a variável `voto`.
+
+Vamos plotar a distribuição das variáveis, desconsiderando as variáveis categóricas.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(reshape2)
+library(ggplot2)
+library(scales)
+
+remove_categorical_vars_converted = function(data) {
+  return(
+    data %>%
+      select(-c(nome, uf, partido, cargo, sexo, grau, estado_civil, ocupacao))
+  )
+}
+
+reshaped_data = 
+  reshape2::melt(
+    elections_2006_2010 %>%
+      remove_categorical_vars_converted)
+
+ggplot2::ggplot(reshaped_data, aes(x = value)) + 
+  facet_wrap(~variable) + 
+  geom_histogram() +
+  scale_y_continuous(label = scales::unit_format(unit = "k", scale = 1e-3))  +
+  scale_x_continuous(label = scales::unit_format(unit = "k", scale = 1e-3), limits = c(-1000, 10000))  +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+No geral a maioria dos valores das variáveis se concentram ao redor de 0. Esse não é o caso de votos. Votos tem um comportamento mais parecido com total_despesa, media_despesa, total_receita e media_receita.
+
+## Pré-processando 
+
+Convertendo vars categóricas em numéricas
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+categorics_to_numerics = function(dataframe) {
+  converted_cols = dataframe %>%
+    dplyr::mutate(
+    uf = as.numeric(as.factor(uf)),
+    nome = as.numeric(as.factor(nome)),
+    partido = as.numeric(as.factor(partido)),
+    grau = as.numeric(as.factor(grau)),
+    estado_civil = as.numeric(as.factor(estado_civil)),
+    ocupacao = as.numeric(as.factor(ocupacao)),
+    cargo = as.numeric(as.factor(cargo)),
+    sexo = as.numeric(as.factor(sexo)),
+    sequencial_candidato = as.numeric(as.factor(sequencial_candidato)))
+  return(converted_cols)
+}
+
+elections_2006_2010 = elections_2006_2010 %>% categorics_to_numerics
+```
+
+Filtrando para gerar dois datasets, um para cada ano (2006 e 2010).
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+elections_2006 = elections_2006_2010 %>% filter(ano == 2006)
+elections_2010 = elections_2006_2010 %>% filter(ano == 2010)
+```
+
+## Treino, Validação e Teste
+
+Criando uma função auxiliar para dividir um dataset de entrada em três de saída (treino, validação e teste).
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+# create a train, validation and tests from the original data frame 
+create_train_validate_test = function(dataframe) {
+  assignment = sample(
+    1:3, size = nrow(elections_2010), 
+    prob = c(0.6, 0.2, 0.2), replace = TRUE)
+
+  smp_train = dataframe[assignment == 1, ]
+  smp_valid = dataframe[assignment == 2, ]
+  smp_test = dataframe[assignment == 3, ]
+  
+  return(list(smp_train, smp_valid, smp_test))
+}
+```
+
+## 1. Um modelo de regressão múltipla com todas as variáveis é plausível para explicar a variação em y (número de votos)?
+
+De certo modo já respondemos a essa pergunta. Mais acima, avaliamos que as variáveis abaixo não seriam significantes para a predição:
+
+- sequencial_candidato
+- nome
+- cargo
+
+Ainda pode haver outras variáveis que também não são boas preditoras. Para poder identificá-las, iremos gerar o modelo e posteriormente avaliá-lo.
+
+### Construindo o modelo
+
+#### 1.1 Em 2006
+
+Dividindo os dados e criando o set para treino do modelo:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+## set seed to make partition reproducible
+set.seed(123)
+
+splitted = create_train_validate_test(elections_2006)
+train_2006 = splitted[[1]]
+valid_2006 = splitted[[2]]
+test_2006 = splitted[[3]]
+```
+
+Função para não usar as variáveis que já julgamos como ruins preditoras.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+remove_non_related_vars = function(data) {
+    return(
+    data %>%
+      select(-c(ano, nome, sequencial_candidato, cargo))
+  )
+}
+```
+
+Instanciando o modelo:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+regression_linear_model_all_vars = function(train_data) {
+  filtered_traind_data = train_data %>% remove_non_related_vars
+  model_all_vars_2006 = lm(data = filtered_traind_data, votos ~ .)
+  return(model_all_vars_2006)
+}
+
+model_all_vars_2006 = regression_linear_model_all_vars(train_2006)
+```
+
+
+
+
+#### 1.2 Para eleições de 2010. 
+
+Dividindo os dados e criando o set para treino do modelo:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+splitted = create_train_validate_test(elections_2010)
+train_2010 = splitted[[1]]
+valid_2010 = splitted[[2]]
+test_2010  = splitted[[3]]
+
+model_all_vars_2010 = regression_linear_model_all_vars(train_2010)
+```
+
+
+
+## 2. Comparando e avaliando regressões
+
+### 2.1 Para eleições de 2006
+
+#### Analisando predição
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+  predictions = predict.lm(model_all_vars_2006, valid_2006)
+  votos = valid_2006$votos
+  
+  predictions_plot = extendrange(c(votos, predictions)) +
+    plot(votos, predictions, main="Resíduos vs. Predições") +
+    abline(0, 1, col="blue", lty=2, lwd=2)
+```
+
+A linha azul representa o modelo e os pontos são as predições feitas com o set de dados de validação (diferente do set usado para treinar o modelo). A ideia aqui é que quanto mais próximos os pontos da linha azul, melhor o modelo. Como há pontos bastante distantes, então o modelo parece não descrever bem os dados.
+
+#### Analisando resíduos
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+residuos = valid_2006$votos - predictions
+
+residuos_plot = plot(predictions, residuos, main="Análise de Resíduos") +
+  abline(h=0,col="blue",lty=2,lwd=2)
+```
+
+É possível perceber que os resíduos não são simétricos e possuem um padrão de comportamento (o ideal é que fossem aleatórios). Isso indica que o modelo ainda precisa de aprimoramentos e transformações.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+residuos_fit_plot = plot(model_all_vars_2006, which = 1)
+```
+
+O objetivo deste gráfico é verificar a não existência de padrão no comportamento dos erros, já que esses erros devem ser aleatórios. Aqui novamente identifica-se padrão nos erros.    
+
+O próximo gráfico procura identificar se os resíduos têm distribuição normal:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+normal_plot = qqnorm(model_all_vars_2006$residuals)
+qqline(model_all_vars_2006$residuals, col = 2,lwd=2,lty=2)
+```
+
+Aqui vemos que os pontos estão muito desajustados à linha reta, o que não é a situação ideal. Perceba que os pontos se curvam nas extremidades. Isso pode significar que nossos dados possuem mais valores extremos do que esperado caso tivessem uma distribuição normal.    
+
+Sumarizando o modelo:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+summary(model_all_vars_2006)
+```
+
+Este sumário trás dois importantes índices: o RSE (residual standard error) e o R² (R-squared). O primeiro fornece uma medida absoluta de falta de ajuste do modelo aos dados. Já o R² indica a proporção da variabilidade da variável alvo explicada pelo modelo. No caso do modelo acima, por exemplo, ele explica 48% dos dados, assim podemos afirmar que este modelo é razoável para explicar a quantidade de votos de um candidato. 
+
+### 2.2 Para eleições de 2010
+
+Plotando os gráficos de diagnóstico:
+
+```{r}
+
+diagnostic_plots = function(model, valid_set) {
+  
+  Predictions = predict.lm(model, valid_set)
+  Votos = valid_set$votos
+  predictions_plot = extendrange(c(Votos, Predictions)) +
+    plot(Votos, Predictions, main="Resíduos vs Predição") +
+    abline(0, 1, col="blue", lty=2, lwd=2)
+  predictions_plot
+  
+  Residuos = Votos - Predictions
+  residuos_plot = plot(Predictions, Residuos, main="Análise de Resíduos") +
+    abline(h=0,col="blue",lty=2,lwd=2)
+  residuos_plot
+  
+  residuos_fit_plot = plot(model, which = 1)
+  
+  normal_plot = qqnorm(model$residuals)
+  qqline(model$residuals, col = 2,lwd=2,lty=2)
+}
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+diagnostic_plots(model_all_vars_2010, valid_2006)
+```
+
+Percebe-se que os mesmos problemas enfrentados para o modelo do ano de 2006 são encontrados para este modelo também (assimetria e padronização dos resíduos, comportamento foge da distribuição normal, etc).
+
+Sumarizando:
+
+```{r}
+summary(model_all_vars_2010)
+```
+
+O R² para os dados de 2010 é menor que aquele para os dados de 2006.   
+
+### Quais variáveis conseguem explicar melhor o número de votos?
+
+Se retornarmos ao sumário dos modelos, perceberemos que muitas variáveis têm um p-valor maior que 0.05. Para essas variáveis, suas chances de estarem relacionadas à variável voto por aleatoriedade é muito alta. Desse modo, poderíamos ter um modelo com mesma significância porém mais simples se removêssemos essas variáveis com o p-valor maior que 0.05. Se assim procedermos, para 2006 ficaremos com: 
+
+- total_receita
+- media_receita
+- recursos_de_outros_candidatos.comites
+- recursos_de_pessoas_fisicas
+- recursos_de_pessoas_juridicas
+- recursos_proprios
+- total_despesa
+- sexo
+- ocupacao
+
+Para 2010, fazendo a mesmo análise, obtemos o seguinte conjunto:
+
+- uf
+- partido
+- quantidade_doacoes
+- quantidade_doadores
+- total_receita
+- media_receita
+- recursos_de_outros_candidatos.comites
+- recursos_de_pessoas_fisicas
+- quantidade_fornecedores
+- total_despesa
+- media_despesa
+- sexo
+- grau
+
+Para responder à pergunta, é também interessante olhar a correlação entre a feature/variável independente e a variável alvo/dependent (nesse caos, votos). Faremos isso a seguir.
+
+## 3. Todas as variáveis são úteis para os modelos de regressão? Há variáveis redudantes?
+
+Para identificar se há variáveis redundantes, podemos avaliar a correlação entre elas. Se duas variáveis forem fortemente correlacioandas, então uma delas é redundante.
+
+### Para 2006:
+
+```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=8}
+library(GGally)
+
+corr_plot = function(data) {
+  corr = data %>% remove_non_related_vars %>% cor() %>% round(2)
+  corr %>%
+    GGally::ggcorr(label_size = 3, label = TRUE, label_color = "black", hjust = 0.925, size = 3.5, angle = -45)
+}
+
+corr_plot(elections_2006)
+```
+
+Olhando para a linha de total_receita, percebemos que está consideralvemente correlacionadas com muitas outras variáveis, por exemplo:   
+
+- media_receita (0.8)
+- recursos_de_pessoas_fisicas (0.7)
+- recursos_de_pessoas_juridicas (1)
+- recursos_proprios (0.7)
+- quantidade_despesas (0.9)
+- quantidade_fornecedores (0.9)
+- total_depesa (1)
+
+Estamos usando o limite 0.7 para identificar redundância. Acima ou igual a esse valor estaremos classificando uma correlação como forte e portanto identificando uma relaçaõ redudante no contexto de nosso modelo.
+
+Há muitas outras áreas em vermelho no gráfico, sugerindo que outras variáveis também possuem considerável correlaçaõ entre si, a exemplo de quantidade_despesas e quantidade_fornecedores (1).   
+Se muitas variáveis independentes são redundantes, não podemos avaliar bem a participação de cada uma delas para explicar a variável alvo (no nosso caso, `votos`), pois diferentes variáveis têm o mesmo efeito na mesma parcela de dados da variável dependente (`voto`).
+
+### Vamos agora avaliar considerando os dados de 2010:
+
+```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=8}
+corr_plot(elections_2010)
+```
+
+A situação é bastante parecida com o caso de 2006.
+
+## 4. Construindo um novo modelo sem as variáveis redudantes
+
+Existem alguns algortimos amplamente usados para realizar seleção de features para modelos, a exemplo de LASSO e Elastic Net. Para este relatório, contudo, por simplicidade, utilizamos algumas abordagens de caráter mais força bruta. Para decidir quais features redundantes não usar no nosso modelo, consideramos também o p-valor e a correlação da variável e com a variável alvo.
+
+### Modelo para os dados de 2006
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+input = train_2006 %>% 
+  remove_non_related_vars %>%
+  select(votos, recursos_proprios, total_despesa, quantidade_doadores, recursos_de_pessoas_fisicas)
+
+final_model_2006 = lm(data = input, formula = votos ~ .)
+```
+
+Avaliando RSE e R2:
+
+```{r}
+summary(final_model_2006)
+```
+
+Em comparação ao modelo anterior para 2006, com todas mais variáveis, o RSE aumentou e o R² diminui aproximadamente 0.06. O modelo tornou-se um pouco menos significativo sem as variáveis redundantes.
+
+### Modelo sem variáveis redundantes para os dados de 2010
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+input = train_2010 %>% 
+  remove_non_related_vars %>%
+  select(votos, total_despesa, recursos_de_outros_candidatos.comites, recursos_proprios, media_receita)
+
+final_model_2010 = lm(data = input, formula = votos ~ .)
+```
+
+Avaliando RSE e R²:
+
+```{r}
+summary(final_model_2010)
+```
+
+Para 2010, o impacto de tirar as variáveis redundantes foi muito insignificativo. O RSE aumentou pouco e o R² diminui pouquíssimo. Dado que o modelo tornou-se muito mais simples, retirar as variáveis redundantes foi bom.
+
+
+## 5. Construindo uma regressão considerando os anos 2006 e 2010 em conjunto, que diferenças/semelhanças você percebe em relação aos modelos individuais por ano?
+
+Separando entre dados de treino, validação e teste:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+set.seed(123)
+
+splitted = create_train_validate_test(elections_2006_2010)
+train_set = splitted[[1]]
+valid_set = splitted[[2]]
+test_set = splitted[[3]]
+```
+
+Construindo o modelo:
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+linear_regression_model = lm(data = train_set, 
+                             formula = 
+                               votos ~ 
+                               total_despesa + 
+                               sqrt(total_despesa) +
+                               quantidade_doadores + 
+                               recursos_proprios + 
+                               total_despesa * quantidade_doadores + 
+                               total_despesa * recursos_proprios)
+```
+
+Avaliando o modelo:
+
+```{r}
+diagnostic_plots(linear_regression_model, valid_set)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+summary(linear_regression_model)
+```
+
+A análise dos resíduos indica que o modelo não teve melhoras significantes. A distribuíção dos resíduos ainda foge da distribuição normal nas extremidades. Mas os índices RSE e R² indicam que o modelo pode obter resultados melhores.
