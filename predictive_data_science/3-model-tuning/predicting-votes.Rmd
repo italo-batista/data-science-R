@@ -1,0 +1,55 @@
+---
+title: "predicting-votes"
+author: "Ítalo Batista"
+date: "29 de outubro de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(here)
+library(dplyr)
+library(readr)
+
+here::get_here()
+
+train_data = readr::read_csv(
+  here::here("predictive_data_science/data/kaggle/ceap/train.csv"),
+  local=readr::locale("br"))
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+train_data %>%
+  glimpse()
+```
+
+Temos algumas variáveis categóricas. Vamos transformá-las.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+#sexo
+genre_cat_to_id = function(m_genre) {
+  return(ifelse(m_genre == "MASCULINO", 0, 1))
+}
+
+train_data = train_data %>%
+  mutate(sexo = genre_cat_to_id(sexo),
+         grau = as.integer(as.factor(grau)),
+         estado_civil = as.integer(as.factor(estado_civil)),
+         ocupacao = as.integer(as.factor(ocupacao)),
+         partido = as.integer(as.factor(partido)),
+         uf = as.integer(as.factor(uf)))
+```
+
+Iremos retirar a variável _cargo_, pois ela é igual para todas as observações.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+train_data = train_data %>%
+  select(-cargo)
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+
+```
