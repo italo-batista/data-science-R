@@ -14,10 +14,8 @@ library(here)
 library(dplyr)
 library(readr)
 
-here::get_here()
-
 train_data = readr::read_csv(
-  here::here("predictive_data_science/data/kaggle/ceap/train.csv"),
+  here::here("data/kaggle/ceap/train.csv"),
   local=readr::locale("br"))
 ```
 
@@ -29,7 +27,6 @@ train_data %>%
 Temos algumas variáveis categóricas. Vamos transformá-las.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-#sexo
 genre_cat_to_id = function(m_genre) {
   return(ifelse(m_genre == "MASCULINO", 0, 1))
 }
@@ -40,7 +37,8 @@ train_data = train_data %>%
          estado_civil = as.integer(as.factor(estado_civil)),
          ocupacao = as.integer(as.factor(ocupacao)),
          partido = as.integer(as.factor(partido)),
-         uf = as.integer(as.factor(uf)))
+         uf = as.integer(as.factor(uf)),
+         id_candidato = as.integer(as.factor(nome)))
 ```
 
 Iremos retirar a variável _cargo_, pois ela é igual para todas as observações.
@@ -48,6 +46,58 @@ Iremos retirar a variável _cargo_, pois ela é igual para todas as observaçõe
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 train_data = train_data %>%
   select(-cargo)
+```
+
+Comportamento dos dados:
+
+```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=6}
+plot_data_distribution = function(data, aux_func) {
+  require(reshape2)
+  require(ggplot2)
+  require(scales)
+  
+  reshaped_data = 
+    reshape2::melt(data %>% aux_func)
+
+  plot = 
+    ggplot(reshaped_data, aes(x = value)) + 
+      facet_wrap(~variable, scales = "free") + 
+      geom_histogram() +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  
+  return(plot)
+}
+
+aux_func = function(data) {return(select(data, -nome))}
+plot_data_distribution(train_data, aux_func)
+```
+
+Transformação dos dados a fim de encontrar uma distribuição normal (exceto da variávle independente, _votos_).
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+train_data = train_data %>%
+  mutate(sequencial_candidato = log(sequencial_candidato),
+         quantidade_doacoes = log(quantidade_doacoes),
+         quantidade_doadores = log(quantidade_doadores),
+         total_receita = log(total_receita),
+         media_receita = log(media_receita),
+         recursos_de_outros_candidatos.comites = log(recursos_de_outros_candidatos.comites),
+         recursos_de_pessoas_fisicas = log(recursos_de_pessoas_fisicas),
+         recursos_de_pessoas_juridicas = log(recursos_de_pessoas_juridicas),
+         recursos_proprios = log(recursos_proprios),
+         recursos_de_partido_politico = log(recursos_de_partido_politico),
+         
+         )
+```
+
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(caret)
+
+trainIndex = createDataPartition(train_data$id_candidato, p = .75, list = FALSE)
+
+train = forestfires[trainIndex,]
+test = forestfires[-trainIndex,]
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
