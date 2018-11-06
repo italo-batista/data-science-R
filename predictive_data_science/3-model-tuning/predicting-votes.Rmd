@@ -9,6 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Baixando dados
+
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 library(here)
 library(dplyr)
@@ -17,12 +19,18 @@ library(readr)
 train_data = readr::read_csv(
   here::here("data/kaggle/ceap/train.csv"),
   local=readr::locale("br"))
+
+test_data = readr::read_csv(
+  here::here("data/kaggle/ceap/test.csv"),
+  local=readr::locale("br"))
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 train_data %>%
   glimpse()
 ```
+
+# Pré-processando
 
 Temos algumas variáveis categóricas. Vamos transformá-las.
 
@@ -37,27 +45,26 @@ train_data = train_data %>%
          estado_civil = as.integer(as.factor(estado_civil)),
          ocupacao = as.integer(as.factor(ocupacao)),
          partido = as.integer(as.factor(partido)),
-         uf = as.integer(as.factor(uf)),
-         id_candidato = as.integer(as.factor(nome)))
+         uf = as.integer(as.factor(uf)))
 ```
 
-Iremos retirar a variável _cargo_, pois ela é igual para todas as observações.
+Iremos retirar as variáveis _cargo_, pois ela é igual para todas as observações. Também iremos remover _nome e sequencial candidato_, pois são pouco relevantes.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 train_data = train_data %>%
-  select(-cargo)
+  select(-c(cargo, nome, sequencial_candidato))
 ```
 
 Comportamento dos dados:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=6}
-plot_data_distribution = function(data, aux_func) {
+plot_data_distribution = function(data) {
   require(reshape2)
   require(ggplot2)
   require(scales)
   
   reshaped_data = 
-    reshape2::melt(data %>% aux_func)
+    reshape2::melt(data)
 
   plot = 
     ggplot(reshaped_data, aes(x = value)) + 
@@ -68,38 +75,131 @@ plot_data_distribution = function(data, aux_func) {
   return(plot)
 }
 
-aux_func = function(data) {return(select(data, -nome))}
-plot_data_distribution(train_data, aux_func)
+plot_data_distribution(train_data)
 ```
 
 Transformação dos dados a fim de encontrar uma distribuição normal (exceto da variávle independente, _votos_).
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
+to_log = function(x) {
+  transformed = (x ** 2) %>% sqrt() %>% log()
+  returned = ifelse(transformed == -Inf,
+                    NA,
+                    ifelse(transformed == Inf,
+                           NA,
+                           transformed))
+  return(returned)
+}
+
 train_data = train_data %>%
-  mutate(sequencial_candidato = log(sequencial_candidato),
-         quantidade_doacoes = log(quantidade_doacoes),
-         quantidade_doadores = log(quantidade_doadores),
-         total_receita = log(total_receita),
-         media_receita = log(media_receita),
-         recursos_de_outros_candidatos.comites = log(recursos_de_outros_candidatos.comites),
-         recursos_de_pessoas_fisicas = log(recursos_de_pessoas_fisicas),
-         recursos_de_pessoas_juridicas = log(recursos_de_pessoas_juridicas),
-         recursos_proprios = log(recursos_proprios),
-         recursos_de_partido_politico = log(recursos_de_partido_politico),
-         
-         )
+  mutate(
+         quantidade_doacoes = to_log(quantidade_doacoes),
+         quantidade_doadores = to_log(quantidade_doadores),
+         total_receita = to_log(total_receita),
+         media_receita = to_log(media_receita),
+         recursos_de_outros_candidatos.comites = to_log(recursos_de_outros_candidatos.comites),
+         recursos_de_pessoas_fisicas = to_log(recursos_de_pessoas_fisicas),
+         recursos_de_pessoas_juridicas = to_log(recursos_de_pessoas_juridicas),
+         recursos_proprios = to_log(recursos_proprios),
+         recursos_de_partido_politico = to_log(recursos_de_partido_politico),
+         quantidade_despesas = to_log(quantidade_despesas),
+         quantidade_fornecedores = to_log(quantidade_fornecedores),
+         total_despesa = to_log(total_despesa),
+         media_despesa = to_log(media_despesa))
+
+train_data = train_data %>% na.omit()
 ```
 
+```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=6}
+plot_data_distribution(train_data)
+```
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
+# Modelos
+## Ridge
+
+```{r message=FALSE, error=FALSE}
+library(caret)
+fitControl = trainControl(method = "repeatedcv", repeats = 5, number = 5, search = "random")
+
+model.ridge = train(votos ~ ., 
+               data = train_data,
+               method = "ridge",
+               metric="RMSE",
+               trControl = fitControl,
+               tuneLength = 100,
+               importance = TRUE,
+               preProcess = c("scale", "center"))
+```
+
+```{r}
+model.ridge
+```
+
+```{r}
+plot(model.ridge, xlab = "Lambda", ylab = "RMSE")
+```
+
+## Lasso
+
+```{r}
 require(caret)
-
-trainIndex = createDataPartition(train_data$id_candidato, p = .75, list = FALSE)
-
-train = forestfires[trainIndex,]
-test = forestfires[-trainIndex,]
+model.lasso = train(votos ~ .,
+                     data = train_data,
+                     trControl = fitControl,
+                     method = "lasso",
+                     preProcess = c("center", "scale"),
+                     tuneLength = 15)
 ```
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
+```{r}
+model.lasso
+```
+
+```{r}
+plot(model.lasso, xlab = "Lambda", ylab = "RMSE")
+```
+
+## KNN
+
+```{r}
+model.knn = train(votos ~ .,
+                   data = train_data,
+                   method = "knn",
+                   trControl = fitControl,
+                   preProcess =  c("center", "scale"),
+                   tuneLength = 15)
+```
+
+```{r}
+model.knn 
+```
+
+```{r}
+plot(model.knn, xlab = "k", ylab = "RMSE")
+```
+
+# Comparando modelos
+
+# Variáveis relevantes
+
+```{r}
+library(ggplot2)
+```
+
+## Ridge
+
+```{r}
+varImp(model.ridge)
+```
+
+## Lasso
+
+```{r}
+varImp(model.lasso)
+```
+
+```{r}
 
 ```
+
+
