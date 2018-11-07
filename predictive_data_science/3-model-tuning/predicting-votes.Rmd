@@ -1,13 +1,31 @@
 ---
 title: "predicting-votes"
 author: "Ítalo Batista"
-date: "29 de outubro de 2018"
-output: html_document
+date: "7 de outubro de 2018"
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    fig_heigth: 20
+  html_notebook:
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes       
+  pdf_document:
+    highlight: tango
+    toc: yes
+    toc_float: yes
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+# O Problema
+
+O objetivo deste exercício é construir modelos preditivos de regressão utilizando técnicas de regularização e seleção de variáveis para a predição de votos em candidatos a deputados que já exercem a função. Os dados foram divididos em dados de treinos e de teste. 
 
 # Baixando dados
 
@@ -16,13 +34,8 @@ library(here)
 library(dplyr)
 library(readr)
 
-train_data = readr::read_csv(
-  here::here("data/kaggle/ceap/train.csv"),
-  local=readr::locale("br"))
-
-test_data = readr::read_csv(
-  here::here("data/kaggle/ceap/test.csv"),
-  local=readr::locale("br"))
+train_data = read.csv(here::here("data/kaggle/ceap/train.csv")) %>% na.omit()
+test_data = read.csv(here::here("data/kaggle/ceap/test.csv")) %>% na.omit()
 ```
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
@@ -32,6 +45,8 @@ train_data %>%
 
 # Pré-processando
 
+Iremos aplicar as seguintes transformações para ambos dados de treino e teste.   
+
 Temos algumas variáveis categóricas. Vamos transformá-las.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
@@ -39,23 +54,39 @@ genre_cat_to_id = function(m_genre) {
   return(ifelse(m_genre == "MASCULINO", 0, 1))
 }
 
-train_data = train_data %>%
-  mutate(sexo = genre_cat_to_id(sexo),
-         grau = as.integer(as.factor(grau)),
-         estado_civil = as.integer(as.factor(estado_civil)),
-         ocupacao = as.integer(as.factor(ocupacao)),
-         partido = as.integer(as.factor(partido)),
-         uf = as.integer(as.factor(uf)))
+categoric_to_id = function(data) {
+  require(dplyr)
+  return(data %>%
+           mutate(sexo = genre_cat_to_id(sexo),
+                  grau = as.integer(as.factor(grau)),
+                  estado_civil = as.integer(as.factor(estado_civil)),
+                  ocupacao = as.integer(as.factor(ocupacao)),
+                  partido = as.integer(as.factor(partido)),
+                  uf = as.integer(as.factor(uf))))
+}
+
+train_data = train_data %>% categoric_to_id
+test_data = test_data %>% categoric_to_id
+
 ```
 
 Iremos retirar as variáveis _cargo_, pois ela é igual para todas as observações. Também iremos remover _nome e sequencial candidato_, pois são pouco relevantes.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-train_data = train_data %>%
-  select(-c(cargo, nome, sequencial_candidato))
+remove_irrelevante_features = function(data) {
+  require(dplyr)
+  return(data %>% 
+           select(-c(cargo, nome, sequencial_candidato)))
+}
+
+# But we will save this colum for make predictions later
+ID = test_data$sequencial_candidato
+
+train_data = train_data %>% remove_irrelevante_features
+test_data = test_data %>% remove_irrelevante_features
 ```
 
-Comportamento dos dados:
+Visualizando o comportamento dos dados de treino:
 
 ```{r message=FALSE, warning=FALSE, error=FALSE, fig.height=6}
 plot_data_distribution = function(data) {
@@ -83,11 +114,8 @@ Transformação dos dados a fim de encontrar uma distribuição normal (exceto d
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 to_log = function(x) {
   transformed = (x ** 2) %>% sqrt() %>% log()
-  returned = ifelse(transformed == -Inf,
-                    NA,
-                    ifelse(transformed == Inf,
-                           NA,
-                           transformed))
+  returned = ifelse(transformed == -Inf, x, 
+                    ifelse(transformed == Inf, x, transformed))
   return(returned)
 }
 
@@ -114,22 +142,37 @@ train_data = train_data %>% na.omit()
 plot_data_distribution(train_data)
 ```
 
-# Modelos
-## Ridge
+# Tuanando modelos (usando validação cruzada) 
+
+Será utilizado o pacote _caret_, que implementa funções para tunar modelos usando o método Ridge, Lasso ou outros. Será utilizada uma validação cruzada 10-fold.
+
+## Modelo de regressão Ridge
+
+A grande vantagem do método Ridge é que através dele podemos diminuir a variância do modelo ao custo de um pequeno aumento no bias. O método ridge tende a aproximar a 0 os coeficientes das variáveis preditoras, conforme o lambda aumenta. Isso diminui a flexibilidade do modelo, diminuindo também a variância, porém aumentando o bias. A ideia por trás da regressão Ridge é encontrar um lambda que gere um trade-off satisfatório entre bias e Variância.   
+
+Treinando:
 
 ```{r message=FALSE, error=FALSE}
 library(caret)
-fitControl = trainControl(method = "repeatedcv", repeats = 5, number = 5, search = "random")
+
+fit_control = trainControl(method = "cv", number = 10)
+
+# Tunando o hiperparâmetro lambda para penalização dos coeficientes
+lambda_grid = expand.grid(lambda = 10^seq(10, -2, length=100))
 
 model.ridge = train(votos ~ ., 
                data = train_data,
+               trControl = fit_control,
+               tuneGrid = lambda_grid,
                method = "ridge",
                metric="RMSE",
-               trControl = fitControl,
                tuneLength = 100,
                importance = TRUE,
-               preProcess = c("scale", "center"))
+               preProcess = c("scale", "center"),
+               na.action = na.omit)
 ```
+
+### Avaliando treino
 
 ```{r}
 model.ridge
@@ -139,17 +182,30 @@ model.ridge
 plot(model.ridge, xlab = "Lambda", ylab = "RMSE")
 ```
 
-## Lasso
+O melhor modelo gerado, levando em consideração o modelo que apresentou menor RMSE, foi o modelo cujo lambda é 0.1. Seu RMSE foi igual a ~36381.63 e seu R² foi igual a ~0.4162627 para o treinamento. Salienta-se que esses valores podem variar um pouco a cada vez que o modelo é treinado.
+
+## Modelo de Regressão Lasso
+
+O método Lasso é uma recente alternativa ao método Ridge. A desvantagem da Ridge é que ela utiliza todas as variáveis. Nele, embora coeficientes tendam a se aproximar de 0, todos são utilizados. No método Lasso, alguns coeficientes são forçados a redução à exatamente 0, e isso significa que podemos descartar algumas variáveis. Essa é a grande vantagem do método Lasso em detrimento do método Ridge.
 
 ```{r}
 require(caret)
-model.lasso = train(votos ~ .,
-                     data = train_data,
-                     trControl = fitControl,
-                     method = "lasso",
-                     preProcess = c("center", "scale"),
-                     tuneLength = 15)
+
+# Tunando o hiperparâmetro lambda para penalização dos coeficientes
+lambda_grid = expand.grid(fraction = seq(.001, .1, length = 100))
+
+model.lasso = train(votos ~ ., 
+                    data = train_data,
+                    method = "lasso",
+                    trControl = fit_control,
+                    tuneGrid = lambda_grid,
+                    tuneLength = 100,
+                    metric="RMSE",
+                    preProcess = c("scale", "center"),
+                    na.action = na.omit)
 ```
+
+### Avaliando treino
 
 ```{r}
 model.lasso
@@ -159,16 +215,25 @@ model.lasso
 plot(model.lasso, xlab = "Lambda", ylab = "RMSE")
 ```
 
-## KNN
+Dado o treinamento, o melhor hiperparâmetro, igual a lambda = ~0.003, nos fornece um modelo cujo RMSE é igual a ~36303.01 e um R² igual a ~0.4164779.
+
+## Modelo KNN
 
 ```{r}
+
+n_neighbors_grid = expand.grid(k = seq(1, 100, length=100))
+
 model.knn = train(votos ~ .,
-                   data = train_data,
-                   method = "knn",
-                   trControl = fitControl,
-                   preProcess =  c("center", "scale"),
-                   tuneLength = 15)
+        data = train_data,
+        method = "knn",
+        trControl = fit_control,
+        tuneGrid = n_neighbors_grid,
+        tuneLength = 100,
+        preProcess = c('scale', 'center'),
+        na.action = na.omit)
 ```
+
+### Avaliando treino
 
 ```{r}
 model.knn 
@@ -178,28 +243,87 @@ model.knn
 plot(model.knn, xlab = "k", ylab = "RMSE")
 ```
 
+O melhor valor para o número de vizinhos, dentre os testados (de 1 a 100 vizinhos), considerado é de aproximadamente 15. O RSME foi a métrica considerada para comparar os resultados para cada um dos cem. O modelo possui RSME ~32058.39, com R² ~0.5499967. Observe que a partir de 15 os valores para RSME se tornam muito próximos. Nesse sentido, pode ocorrer a seguinte situação: o número ideal de vizinhos ser (exemplo) 60, contudo a diferença entre o O RSME de 60 e de 15 ser muito pequena.
+
 # Comparando modelos
 
-# Variáveis relevantes
+Vamos comparar os modelos em termos de RSME. Cada um deles obteve o seguinte valor de RSME:
+
+* Ridge: ~36381.63 
+* Lassi: ~36303.01 
+* KNN: ~32295.31.
+
+Portanto o modelo KNN (considerando 42 vizinhos) obteve o melhor resultado! :)
+
+# Quais as variáveis mais importantes segundo o modelo de regressão Ridge e Lasso?
+
+Por importância de uma feature, podemos entender como a dificuldade do método em diminuir o peso ou desconsiderar a feature, sendo um valor variável entre 0 e 100, e considerando features com valores maiores como mais importantes.
 
 ```{r}
-library(ggplot2)
+plot_var_imp = function(model) {
+  require(ggplot2)
+  return(ggplot(varImp(model)) +
+           geom_bar(stat="identity", fill="#AD1457", colour="#880E4F") +
+           labs(title="Importância de variáveis (Lasso)", y="Importância", x="Variável"))
+}
 ```
 
-## Ridge
+## Modelo Ridge
 
 ```{r}
-varImp(model.ridge)
+plot_var_imp(model.ridge)
 ```
+
+Como pode ser visto no gráfico, o modelo Ridge considerou as seguintes três variáveis como as mais importantes:
+
+- total_despesa
+- total_receita
+- recursos_de_pessoas_jurídicas
+
+Por outro lado, as seguintes features tiveram pouca importância para o modelo:
+- grau
+- ocupacao
+- partido
+- sexo
+- uf
+- ano
 
 ## Lasso
 
 ```{r}
-varImp(model.lasso)
+plot_var_imp(model.lasso)
+```
+
+O modelo Lasso obteve o mesmo resultado do modelo Ridge. No entando, o que é importanto de observar nesse modelo é que a variável _ano_ foi descartada.
+
+# Re-treine o melhor modelo (sem validação cruzada)
+
+O melhor modelo encontrado foi o do método KNN, para um valor k de vizinho entre 15 e 100.
+
+```{r}
+best.model = train(votos ~ .,
+                   data = train_data,
+                   method = "knn",
+                   na.action = na.omit,
+                   tuneGrid = data.frame(k = 15),
+                   preProcess = c('scale', 'center'))
 ```
 
 ```{r}
+best.model
+```
 
+# Prevendo votos...
+
+Vamos usar nosso último modelo para prever quantidade de votos! :)
+
+```{r}
+predictions = predict(best.model, test_data) 
+submission = data.frame(ID = as.character(ID), votos = predictions)
+write.csv(submission, "submission.csv", row.names = F)
+
+submission %>%
+  glimpse()
 ```
 
 
