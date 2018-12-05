@@ -1,0 +1,548 @@
+---
+title: "Predicting Elections"
+author: "Italo Batista"
+date: "28 de novembro de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Neste relatório iremos trabalhar conceitos e métodos de classificação com Machine Learning na tarefa de prever se candidatos serão eleitos ou não.
+
+# Dados
+
+Os dados são das eleições de 2006 e 2010 (treino) e 2014 (teste).
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(here)
+library(dplyr)
+library(readr)
+
+train_raw = read.csv(here::here("data/kaggle/elections/train.csv")) %>% na.omit()
+test = read.csv(here::here("data/kaggle/elections/test.csv")) %>% na.omit()
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+#train %>%
+#  glimpse()
+```
+
+# Pré-processando
+
+## Balanceamento de classes
+
+Vamos comparar a frequência de cada classe (eleito/ não eleito) nos dados de treino. O interesse é identificar se há uma classe que é bem mais recorrente do que outra nos dados de treino.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+source("../color_pallet.R")
+library(ggplot2)
+
+plot_classes = function(data) {
+ classes = data %>% 
+  select(situacao) %>%
+  group_by(situacao) %>%
+  summarise(count=n())
+
+ylim = 7000 
+   
+ggplot(classes, aes(x=situacao, y=count, fill=situacao)) +
+  geom_bar(stat = "identity") +
+  scale_fill_drsimonj(discrete = TRUE, palette = "hot") +
+  scale_y_continuous(limits = c(0, ylim))
+
+}
+
+plot_classes(train)
+```
+
+A partir da visualização acima, fica claro que há um desbalanceamento. As classes aparecem desproporcionalmente nos dados de treino (há quase 7 vezes mais observações classificadas como _não eleito_ do que como _eleito_).    
+Um dos efeitos colaterais que este desbalanceamento de classes pode causar no classificador é reduzir sua acurácia, visto que o classificador ficará enviesado.   
+Para tratar este tipo de problema, há algumas abordagens geralmente utilizadas:
+1. Alterar a métrica de avaliação modelo de acurácia para precision e recall.   
+2. Reamostragem do dataset, sendo possível usar alguma das seguintes técnicas:
+  - ROSE: Random Over-Sampling Examples.
+  - SMOTE: Synthetic Minority Over-Sampling Technique;
+  - Oversampling: criação de observações da classe minoritária; 
+  - Undersampling: remoção de algumas observações da classe majoritária; 
+
+Vamos testar algumas delas.
+
+### ROSE
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(ROSE)
+
+opt_rose = ROSE(situacao ~ ., data  = train_raw)$data
+plot_classes(opt_rose)
+```
+
+### SMOTE
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(DMwR)
+
+opt_smote = SMOTE(situacao ~ ., data  = train_raw)                         
+plot_classes(opt_smote)
+```
+
+### Oversampling
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(caret)
+
+opt_oversampling = upSample(x = train_raw[,], 
+                            y = train_raw$situacao)  
+
+plot_classes(opt_oversampling)
+```
+
+### Undersampling
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+opt_undersampling = 
+  downSample(x = train_raw[, -ncol(train_raw)], 
+             y = train_raw$situacao)  %>%
+  mutate(situacao = Class)
+
+plot_classes(opt_undersampling)
+```
+
+Iremos utilizar a ténica ROSE para conduzir nosso relatório :)
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+train = opt_rose
+```
+
+```{r echo=FALSE}
+rm(opt_rose)
+rm(opt_smote)
+rm(opt_undersampling)
+rm(opt_oversampling)
+```
+
+## Transformando dados
+
+Eliminando algumas variáveis que não serão relevantes para a classificação. 
+
+```{r}
+train = train_raw %>% select(-ano, -sequencial_candidato, -nome, -cargo)
+test = test %>% select(-ano, sequencial_candidato, -nome, -cargo)
+rm(train_raw)
+```
+
+Vamo também transformar algumas variáveis categóricas em variáveis númericas.
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+genre_cat_to_id = function(m_genre) {
+  return(ifelse(m_genre == "MASCULINO", 0, 1))
+}
+
+categoric_to_id = function(data) {
+  require(dplyr)
+  trasnformed = data %>% 
+    mutate(sexo = genre_cat_to_id(sexo),
+    grau = as.integer(as.factor(grau)),
+    estado_civil = as.integer(as.factor(estado_civil)),
+    ocupacao = as.integer(as.factor(ocupacao)),
+    partido = as.integer(as.factor(partido)),
+    uf = as.integer(as.factor(uf)))
+  return(trasnformed)
+}
+
+train = train %>% categoric_to_id
+test = test %>% categoric_to_id 
+```
+
+## Dataset de validação
+
+Iremos retirar um subconjunto dos dados de treino e vamos chamá-lo de dados de validação, que usaremos para avaliar resultados de nossos modelos.
+
+```{r}
+## set seed to make partition reproducible
+set.seed(123)
+
+create_train_validate = function(dataframe) {
+  assignment = sample(
+    1:2, size = nrow(dataframe), 
+    prob = c(0.8, 0.2), replace = TRUE)
+
+  smp_train = dataframe[assignment == 1, ]
+  smp_valid = dataframe[assignment == 2, ]
+  
+  return(list(smp_train, smp_valid))
+}
+
+splitted = create_train_validate(train)
+train = splitted[[1]]
+validation_set = splitted[[2]]
+```
+
+# Treinando Modelos
+
+Vamos treinar alguns modelos.  
+
+
+```{r}
+formula = as.formula(situacao ~ partido + 
+                       media_receita + 
+                       media_despesa + 
+                       ocupacao +
+                       quantidade_doadores + 
+                       recursos_proprios + 
+                       recursos_de_partido_politico + 
+                       quantidade_despesas + 
+                       quantidade_fornecedores)
+```
+
+## KNN
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(caret)
+
+n_neighbors_grid = expand.grid(k = 1:20) 
+fit_control_knn = trainControl(method="repeatedcv", repeats = 3)
+
+set.seed(123)
+model.knn = 
+  train(formula,
+        data = train,
+        method = "knn",
+        trControl = fit_control_knn,
+        tuneGrid = n_neighbors_grid,
+        tuneLength = 20,
+        preProcess = c('scale', 'center'),
+        metric = "Accuracy",
+        na.action = na.omit)
+```
+
+```{r}
+plot(model.knn, print.thres = 0.5, type="S")
+```
+
+## Regressão Logística
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(caret)
+
+fit_control = trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 5,
+                           classProbs = TRUE)
+
+set.seed(123)
+model.logistic = train(formula,
+                 data = train,
+                 method="glm",
+                 family="binomial",
+                 trControl = fit_control,
+                 tuneLength = 20,
+                 preProcess = c("scale", "center"),                 
+                 na.action = na.omit)
+```
+
+## Árvore de Decisão
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+require(caret)
+require(rpart)
+
+mFitControl = trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 10,
+                           classProbs = TRUE,
+                           summaryFunction = twoClassSummary)
+
+set.seed(123)
+model.tree= train(formula,
+                 data = train,
+                 method = "rpart",
+                 trControl = mFitControl,
+                 preProcess = c("scale", "center"), 
+                 cp = 0.001,  # parâmetro de complexidade
+                 maxdepth = 30,
+                 metric = "ROC")
+```
+
+## Adaboost
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+model.ada = train(formula,
+                  data = train,
+                  trControl = trainControl(method = 'cv', number = 5),
+                  preProcess = c("scale", "center"),   
+                  method = "adaboost")
+```
+
+# Avaliando Modelos
+
+Algumas métricas conhecidas para avaliarmos a eficácia de um modelo são:
+  * Accuracy (acurácia)
+  * Precision
+  * Recall
+
+Essas métricas são definidas em termos de Verdadeiros Positivos (TP), Verdadeiros Negativos (TN), Falsos Positivos (FP) e Falsos Negativos (FN).
+
+Acurácia = (TP + TN) / (TP + TN + FP + FN) 
+__Nos diz a proporção de observações corretamente classificadas.__
+
+Precision = TP / (TP + FP) 
+__Diz respeito a quantas das observaçoes preditas como positivas são realmente positivas.__
+
+Recall = TP / (TP + FN) 
+__Diz respeito a quantas das observaçoes positivas foram corretamente classificadas.__
+
+F-measure = 2 * (Precision * Recall) / (Precision + Recall) 
+__O F1 score or F-measure é uma média harmônica das métricas precision e recall, quanto mais próximo de 1 o valor de F1 score melhor e quanto mais próximo de 0 pior.__
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+library(pander)
+
+# function to print metrics
+print_metrics = function(model, prediction_set) {
+  prediction_set$predction = predict(model, prediction_set)
+  
+  TP = prediction_set %>% filter(situacao == "eleito", predction == "eleito") %>% nrow()
+  TN = prediction_set %>% filter(situacao == "nao_eleito" , predction == "nao_eleito" ) %>% nrow()
+  FP = prediction_set %>% filter(situacao == "nao_eleito" , predction == "eleito") %>% nrow() 
+  FN = prediction_set %>% filter(situacao == "eleito", predction == "nao_eleito" ) %>% nrow()
+  
+  accuracy = (TP + TN)/(TP + TN + FP + FN) 
+  precision = TP / (TP + FP)
+  recall = TP / (TP + FN)
+  f_measure = 2 * (precision * recall) / (precision + recall)
+  
+  df = data.frame("Acurácia" = accuracy, 
+                  "Precision" = precision, 
+                  "Recall" = recall, 
+                  "F Measure" = f_measure)
+  pander::pander(df)
+}
+```
+
+```{r echo=FALSE}
+print_confusion_matrix = function() {
+  validation_set$predction = predict(model.knn, validation_set)
+  confusionMatrix(validation_set$situacao, validation_set$predction)
+}
+```
+
+Vamos avaliar cada modelo treinado segundo essas métricas.    
+Além de avaliar os modelos usando os dados de treino, iremos também avaliá-los usando o conjunto de dados de validação. Isso é importante porque os modelos estão sujeitos a overfitting em relação aos dados com que foram treinados. Portanto é importante avaliá-los também com um conjunto de dados que não foram usados em treino.
+
+## KNN
+
+### No treino:
+
+```{r}
+print_metrics(model.knn, train)
+```
+
+### Na validação:
+
+```{r}
+print_metrics(model.knn, validation_set)
+```
+
+É possível perceber que o modelo obteve melhores resultados na validação. Contudo, o modelo precisaria ser melhor refinado. Por exemplo, somente quase 75% das observações realmente positivas seriam classificadas como positivas.
+
+## Regressão Logística
+
+### No treino:
+
+```{r}
+print_metrics(model.logistic, train)
+```
+
+### Na validação:
+
+```{r}
+print_metrics(model.logistic, validation_set)
+```
+
+Aqui também a validação obteve melhores resultados. Mas o modelo foi inferior ao anterior (KNN). Portanto, poderia ser melhor refinado.
+
+## Ávore de Decisão
+
+### No treino:
+
+```{r}
+print_metrics(model.tree, train)
+```
+
+### Na validação:
+
+```{r}
+print_metrics(model.tree, validation_set)
+```
+
+Note o baixo valor para F Measure e para Recall. Aqui teremos  um classificador muito ruim.
+
+## Adaboost
+
+### Na validação:
+
+```{r}
+print_metrics(model.ada, validation_set)
+```
+
+### No treino:
+
+```{r}
+print_metrics(model.ada, train)
+```
+
+Esse modelo foi o que obteve o melhor resultado até então, tanto no treino quanto na validação. Note a diferença dos resultados entre treino e validação.
+
+# Interpretando modelos
+
+## KNN
+
+```{r}
+model.knn
+```
+
+```{r}
+varImp(model.knn)
+```
+
+
+## Regressão Logística
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+model.logistic
+```
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+varImp(model.logistic, scale=FALSE)
+```
+
+## Árvore de Decisão
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+model.tree
+```
+
+```{r}
+varImp(model.tree)
+```
+
+## Adaboost
+
+```{r message=FALSE, warning=FALSE, error=FALSE}
+model.ada
+```
+
+```{r}
+varImp(model.ada)
+```
+
+# Outros modelos
+
+## Support Vector Machines with Radial Basis Function Kernel 
+
+### Treino
+
+```{r}
+mFitControl = trainControl(method = "cv",
+                           number = 5,
+                           classProbs = TRUE,
+                           summaryFunction = twoClassSummary)
+
+set.seed(825)
+svmFit = train(formula, 
+               data = train, 
+               method = "svmRadial", 
+               trControl = mFitControl, 
+               preProc = c("center", "scale"),
+               tuneLength = 8,
+               metric = "ROC")
+```
+
+### Avaliando modelo
+
+#### Na validação:
+
+```{r}
+print_metrics(svmFit, validation_set)
+```
+
+#### No treino:
+
+```{r}
+print_metrics(svmFit, train)
+```
+
+### Interpretando ouput
+
+```{r}
+svmFit
+```
+
+## Random Forest
+
+Para tentar melhorar os resultados, decidi utilizar Random forest que é um método bastante utilizado e popular em desafios e na literatura.
+
+Random forest irá criar vários modelos diferentes, porém simples, e unir os resultados para criar uma boa árvore de decisão, mais sobre Random forest pode ser visto em [4] e [5].
+
+O modelo abaixo utiliza os mesmos atributos dos modelos anteriores e 2000 “sub-árvores” serão geradas.
+
+### Treino
+```{r}
+library(randomForest)
+model.random.forest = randomForest(formula,
+                                   data=train,
+                                   importance=TRUE,
+                                   ntree=2000)
+```
+
+### Avaliando modelo
+
+#### Na validação:
+
+```{r}
+print_metrics(model.random.forest, validation_set)
+```
+
+#### No treino:
+
+```{r}
+print_metrics(model.random.forest, train)
+```
+
+### Interpretando ouput
+
+```{r}
+model.random.forest
+```
+
+# Submetendo predição no Kaggle
+
+```{r}
+write_output = function(model, test_set, output_file_name) {
+  test_set$predction = predict(model, test_set)
+  predictions = test_set %>% 
+    select(sequencial_candidato, predction) %>%
+    mutate(Id = sequencial_candidato,
+           Predicted = predction) %>%
+    select(Predicted, Id)
+  
+  write.csv(predictions, file = output_file_name, row.names = F)
+}
+```
+
+```{r}
+write_output(model.knn, test, "knn_predictions.csv")
+write_output(model.logistic, test, "logistic_predictions.csv")
+write_output(model.tree, test, "tree_predictions.csv")
+write_output(model.ada, test, "ada_predictions.csv")
+write_output(svmFit, test, "svm_predictions.csv")
+
+library(caret)
+random_forest_pred = predict(model.random.forest, test, type='class')
+write_output(model.random.forest, test, "random_forest_predictions.csv")
+
+```
+
