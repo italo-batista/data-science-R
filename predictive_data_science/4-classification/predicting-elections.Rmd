@@ -2,7 +2,21 @@
 title: "Predicting Elections"
 author: "Italo Batista"
 date: "28 de novembro de 2018"
-output: html_document
+output:
+  rmdformats::readthedown:
+    highlight: kate
+    fig_heigth: 20
+  html_notebook:
+    toc: yes
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: yes       
+  pdf_document:
+    highlight: tango
+    toc: yes
+    toc_float: yes
 ---
 
 ```{r setup, include=FALSE}
@@ -46,16 +60,16 @@ plot_classes = function(data) {
   group_by(situacao) %>%
   summarise(count=n())
 
-ylim = 7000 
-   
-ggplot(classes, aes(x=situacao, y=count, fill=situacao)) +
-  geom_bar(stat = "identity") +
-  scale_fill_drsimonj(discrete = TRUE, palette = "hot") +
-  scale_y_continuous(limits = c(0, ylim))
+  ylim = 7000 
+     
+  ggplot(classes, aes(x=situacao, y=count, fill=situacao)) +
+    geom_bar(stat = "identity") +
+    scale_fill_drsimonj(discrete = TRUE, palette = "hot") +
+    scale_y_continuous(limits = c(0, ylim))
 
 }
 
-plot_classes(train)
+plot_classes(train_raw)
 ```
 
 A partir da visualização acima, fica claro que há um desbalanceamento. As classes aparecem desproporcionalmente nos dados de treino (há quase 7 vezes mais observações classificadas como _não eleito_ do que como _eleito_).    
@@ -182,7 +196,7 @@ validation_set = splitted[[2]]
 
 # Treinando Modelos
 
-Vamos treinar alguns modelos.  
+Vamos treinar alguns modelos para realizar nossa tarefa de classificação. Em todos os modelos iremos usar cross-validation para encontrar os melhores hiperparâmetros de cada modelo.    
 
 
 ```{r}
@@ -198,6 +212,8 @@ formula = as.formula(situacao ~ partido +
 ```
 
 ## KNN
+
+O modeo KNN (k-nearest neighbors ou k vizinhos mais próximos) é um algoritmo que tem como premissa que, dado um conjunto de observações distribuídas como vetores num plano multidimensional (em que cada dimensão corresponde a uma feature das observações), observações próximas tendem a pertencer à mesma classe. O valor K corresponde justamente ao número de vizinhos próximos a se considerar.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 library(caret)
@@ -224,6 +240,8 @@ plot(model.knn, print.thres = 0.5, type="S")
 
 ## Regressão Logística
 
+Na Regressão Logística, ao inveś de buscar-se predizer um valor diretamente, o algoritmo estima uma probabilidade de uma instância pertencer a uma determinada classe. Se para uma instância essa estimativa for maior que 50%, por exemplo, então o modelo prevê que esta instância pertence a essa classe.
+
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(caret)
 
@@ -244,6 +262,8 @@ model.logistic = train(formula,
 ```
 
 ## Árvore de Decisão
+
+Esse modelo parrte da noção fundamental da ciência da computação de "dividir e conquistar". O objetivo da aprendizagem é descobrir quais perguntas fazer, em que ordem perguntar e qual a resposta a prever depois de fazer perguntas suficientes.  A árvore de decisão é assim chamada porque podemos escrever nosso conjunto de perguntas e suposições em um formato de árvore. Podemos mapear essas perguntas para as features do nosso conjunto de dados e as repostas para essas perguntas para os valores dessas features. Em um formato possível de uma árvore, por exemplo, cada nó não terminal tem dois filhos: a criança esquerda especifica o que fazer se a resposta à pergunta for "não" e o filho à direita especifica o que fazer se for "sim". Grosso modo, uma nova instância a ser classificada percorre um caminho na árvore, desde à raiz, respondendo às perguntas, até chegar a um nó que não tiver filhos, e aí então essa instância será classificada de acordo com o rótulo desse nó.
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
 require(caret)
@@ -285,16 +305,16 @@ Algumas métricas conhecidas para avaliarmos a eficácia de um modelo são:
 
 Essas métricas são definidas em termos de Verdadeiros Positivos (TP), Verdadeiros Negativos (TN), Falsos Positivos (FP) e Falsos Negativos (FN).
 
-Acurácia = (TP + TN) / (TP + TN + FP + FN) 
+Acurácia = (TP + TN) / (TP + TN + FP + FN)   
 __Nos diz a proporção de observações corretamente classificadas.__
 
-Precision = TP / (TP + FP) 
+Precision = TP / (TP + FP)   
 __Diz respeito a quantas das observaçoes preditas como positivas são realmente positivas.__
 
-Recall = TP / (TP + FN) 
+Recall = TP / (TP + FN)    
 __Diz respeito a quantas das observaçoes positivas foram corretamente classificadas.__
 
-F-measure = 2 * (Precision * Recall) / (Precision + Recall) 
+F-measure = 2 * (Precision * Recall) / (Precision + Recall)    
 __O F1 score or F-measure é uma média harmônica das métricas precision e recall, quanto mais próximo de 1 o valor de F1 score melhor e quanto mais próximo de 0 pior.__
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
@@ -398,11 +418,11 @@ Esse modelo foi o que obteve o melhor resultado até então, tanto no treino qua
 
 # Interpretando modelos
 
-## KNN
+Quais foram as features mais importantes para cada modelo?
 
-```{r}
-model.knn
-```
+A função varImp retornar scores numa escala entre 100 (muita importância) e 0 (pouca importância).
+
+## KNN
 
 ```{r}
 varImp(model.knn)
@@ -412,18 +432,12 @@ varImp(model.knn)
 ## Regressão Logística
 
 ```{r message=FALSE, warning=FALSE, error=FALSE}
-model.logistic
-```
-
-```{r message=FALSE, warning=FALSE, error=FALSE}
 varImp(model.logistic, scale=FALSE)
 ```
 
-## Árvore de Decisão
+Aqui é notável o fato das features terem tido pouca importância para a classificação. Para esse modelo, portanto, poderíamos ter criado novas features baseada nas já existente e investigar se houve melhora nas métricas do modelo (lembrando que este modelo teve uma das piores performances, de acordo com nossas méticas da secção anterior).
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
-model.tree
-```
+## Árvore de Decisão
 
 ```{r}
 varImp(model.tree)
@@ -431,63 +445,15 @@ varImp(model.tree)
 
 ## Adaboost
 
-```{r message=FALSE, warning=FALSE, error=FALSE}
-model.ada
-```
-
 ```{r}
 varImp(model.ada)
 ```
 
 # Outros modelos
 
-## Support Vector Machines with Radial Basis Function Kernel 
-
-### Treino
-
-```{r}
-mFitControl = trainControl(method = "cv",
-                           number = 5,
-                           classProbs = TRUE,
-                           summaryFunction = twoClassSummary)
-
-set.seed(825)
-svmFit = train(formula, 
-               data = train, 
-               method = "svmRadial", 
-               trControl = mFitControl, 
-               preProc = c("center", "scale"),
-               tuneLength = 8,
-               metric = "ROC")
-```
-
-### Avaliando modelo
-
-#### Na validação:
-
-```{r}
-print_metrics(svmFit, validation_set)
-```
-
-#### No treino:
-
-```{r}
-print_metrics(svmFit, train)
-```
-
-### Interpretando ouput
-
-```{r}
-svmFit
-```
-
 ## Random Forest
 
-Para tentar melhorar os resultados, decidi utilizar Random forest que é um método bastante utilizado e popular em desafios e na literatura.
-
-Random forest irá criar vários modelos diferentes, porém simples, e unir os resultados para criar uma boa árvore de decisão, mais sobre Random forest pode ser visto em [4] e [5].
-
-O modelo abaixo utiliza os mesmos atributos dos modelos anteriores e 2000 “sub-árvores” serão geradas.
+Para tentar melhorar os resultados, decidi utilizar Random forest, um método bastante utilizado e popular em desafios e na literatura. Neste método, vários modelos diferentes são criado, sendo todos eles porém simples. A ideia é unir diversos classificadores simples para construir uma boa árvore de decisão.
 
 ### Treino
 ```{r}
@@ -538,7 +504,6 @@ write_output(model.knn, test, "knn_predictions.csv")
 write_output(model.logistic, test, "logistic_predictions.csv")
 write_output(model.tree, test, "tree_predictions.csv")
 write_output(model.ada, test, "ada_predictions.csv")
-write_output(svmFit, test, "svm_predictions.csv")
 
 library(caret)
 random_forest_pred = predict(model.random.forest, test, type='class')
